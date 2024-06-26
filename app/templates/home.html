@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Home - Learning App</title>
+    </head>
+    <body>
+        <h1>Welcome</h1>
+        {% if session %}
+            <pre>{{pretty}}</pre>
+            <hr>
+            <a href="{{url_for('main.logout')}}">Log Out</a>
+        {% else %}
+            <a href="{{url_for('main.login')}}">Login</a>
+        {% endif %}
+    </body>
+</html>
