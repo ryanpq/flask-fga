@@ -29,7 +29,7 @@ async def initialize_fga_client():
     await fga_client.read_authorization_models()
     print("FGA Client initialized.")
 
-async def fga_relate_user_object(user_uuid,folder_uuid,object_type,relation):
+async def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
 
     if fga_client is None:
         await initialize_fga_client()
@@ -39,7 +39,7 @@ async def fga_relate_user_object(user_uuid,folder_uuid,object_type,relation):
                     ClientTuple(
                         user=f"user:{user_uuid}",
                         relation=relation,
-                        object=f"{object_type}:{folder_uuid}",
+                        object=f"{object_type}:{object_uuid}",
                     ),
             ],
     )
@@ -62,6 +62,13 @@ def checkUserAccess(user_uuid,action,object_type,object_uuid):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     result = loop.run_until_complete(fga_check_user_access(user_uuid,action,object_type,object_uuid))
+
+    return result
+
+def relateUserObject(user_uuid,object_uuid,object_type,relation):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(fga_relate_user_object(user_uuid,object_uuid,object_type,relation))
 
     return result
     
@@ -112,12 +119,9 @@ def registerUser(user_info):
     #Create Default Folder for new user
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(createDefaultFolder(user.id))
-    
-    if result is True:
-        print("default folder created")
-    else:
-        print("Error creating default folder")
+    folder_id = loop.run_until_complete(createDefaultFolder(user.id))
+
+    createDefaultFile(user.id,folder_id)
 
     return True
 
@@ -136,7 +140,28 @@ async def createDefaultFolder(user_id):
     await fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
     
 
-    return True
+    return folder.id
+
+def createDefaultFile(user_id, folder_id):
+    user = User.query.filter_by(id=user_id).first()
+    folder = Folder.query.filter_by(id=folder_id).first()
+
+    if user is None or folder is None:
+        return False
+    
+    file_name = "Readme.txt"
+    file_content = "Welcome to your folder.  You can create and share text files here."
+    new_uuid = uuid.uuid4()
+
+    file = File(uuid=new_uuid, folder=folder.uuid, name=file_name, text_content=file_content, creator=user.id)
+    db.session.add(file)
+    db.session.commit()
+
+    print("Default file created, updating authorization tuple")
+
+    relateUserObject(user.uuid, new_uuid, "file", "owner")
+
+
 
 
 # Route Handers
@@ -186,19 +211,32 @@ def logout():
         )
     )
 
-@main.route("/api/list/<str:folder_uuid>")
+@main.route("/api/list/<folder_uuid>")
 @api_require_auth
 def list_directory(folder_uuid):
     print("Directory List Request")
+    user_uuid = session['uuid']
     pwd = Folder.query.filter_by(uuid=folder_uuid).first()
     child_folders = Folder.query.filter_by(parent=pwd.uuid)
     child_files = File.query.filter_by(folder=pwd.uuid)
     folder_objects = []
 
     for folder in child_folders:
-        if checkUserAccess(session['uuid'],"read", folder.uuid):
-            
-
+        if checkUserAccess(user_uuid,"read", folder.uuid):
+            folder_objects.apend({
+                "uuid": folder.uuid,
+                "name": folder.name,
+                "type": "folder"
+            })
+    
+    for file in child_files:
+        if checkUserAccess(user_uuid, "read", "file", file.uuid):
+            folder_objects.append({
+                "uuid": file.uuid,
+                "name": file.name,
+                "type": "file"
+            })
+    return jsonify(folder_objects)
 
 @main.route("/")
 def home():
