@@ -2,18 +2,37 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 from urllib.parse import quote_plus, urlencode
 from os import environ as env
 import json
-from app import oauth, db, fga_client
+from app import oauth, db
 from app.models import User, Group, File, Folder
 import uuid
 import os
 import asyncio
-from openfga_sdk.client import OpenFgaClient
+from openfga_sdk.client import OpenFgaClient, ClientConfiguration
 from openfga_sdk.client.models import ClientTuple, ClientWriteRequest
 
 
 main = Blueprint('main', __name__)
 
+fga_client = None
+
+async def initialize_fga_client():
+    print("Initializing OpenFGA Client SDK")
+    configuration = ClientConfiguration(
+        api_url = os.getenv('FGA_API_URL'), 
+        store_id = os.getenv('FGA_STORE_ID'), 
+        authorization_model_id = os.getenv('FGA_MODEL_ID'), 
+    )
+
+    global fga_client
+    fga_client = OpenFgaClient(configuration)
+    await fga_client.read_authorization_models()
+    print("FGA Client initialized.")
+
 async def fga_relate_user_folder(user_uuid,folder_uuid,relation):
+
+    if fga_client is None:
+        await initialize_fga_client()
+
     body = ClientWriteRequest(
             writes=[
                     ClientTuple(
@@ -54,11 +73,18 @@ def registerUser(user_info):
     print("User Registered in database")
 
     #Create Default Folder for new user
-    createDefaultFolder(user.id)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(createDefaultFolder(user.id))
+    
+    if result is True:
+        print("default folder created")
+    else:
+        print("Error creating default folder")
 
     return True
 
-def createDefaultFolder(user_id):
+async def createDefaultFolder(user_id):
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -70,13 +96,10 @@ def createDefaultFolder(user_id):
     db.session.add(folder)
     db.session.commit()
 
-    #Create owner relationship between user and folder
+    await fga_relate_user_folder(user.uuid, new_uuid, "owner")
+    
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    response = loop.run_until_complete(fga_relate_user_folder(user.uuid, new_uuid, "owner"))
-
-    return response
+    return True
 
 
 
