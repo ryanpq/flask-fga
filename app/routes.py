@@ -49,7 +49,10 @@ async def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
 async def fga_check_user_access(user_uuid,action,object_type,object_uuid):
     if fga_client is None:
         await initialize_fga_client()
-        body = ClientCheckRequest(
+
+    print(f"Checking user: {user_uuid} for {action} permission on the {object_type} {object_uuid}")
+
+    body = ClientCheckRequest(
         user=f"user:{user_uuid}",
         relation=action,
         object=f"{object_type}:{object_uuid}",
@@ -103,7 +106,7 @@ def loadSession(email):
 
     return True
 
-def registerUser(user_info):
+async def registerUser(user_info):
     email = user_info['email']
     name = user_info['name']
     image = user_info['picture']
@@ -117,11 +120,9 @@ def registerUser(user_info):
     print("User Registered in database")
 
     #Create Default Folder for new user
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    folder_id = loop.run_until_complete(createDefaultFolder(user.id))
+    folder_id = await createDefaultFolder(user.id)
 
-    createDefaultFile(user.id,folder_id)
+    await createDefaultFile(user.id,folder_id)
 
     return True
 
@@ -142,7 +143,7 @@ async def createDefaultFolder(user_id):
 
     return folder.id
 
-def createDefaultFile(user_id, folder_id):
+async def createDefaultFile(user_id, folder_id):
     user = User.query.filter_by(id=user_id).first()
     folder = Folder.query.filter_by(id=folder_id).first()
 
@@ -159,7 +160,9 @@ def createDefaultFile(user_id, folder_id):
 
     print("Default file created, updating authorization tuple")
 
-    relateUserObject(user.uuid, new_uuid, "file", "owner")
+    await fga_relate_user_object(user.uuid, new_uuid, "file", "owner")
+
+    return True
 
 
 
@@ -175,26 +178,28 @@ def login():
 
 @main.route("/callback", methods=["GET", "POST"])
 def callback():
-    try:
-        token = oauth.auth0.authorize_access_token()
-        print(f"TOKEN: {token}\n\n\n")
-        session["user"] = token
+    async def async_callback():
+        try:
+            token = oauth.auth0.authorize_access_token()
+            print(f"TOKEN: {token}\n\n\n")
+            session["user"] = token
 
-        user_info = token['userinfo']
-        
+            user_info = token['userinfo']
+            
 
-        user = User.query.filter_by(email=user_info['email']).first()
-        if user is None:
-            registerUser(user_info)
-        else:
-            print("User is already registered.")
+            user = User.query.filter_by(email=user_info['email']).first()
+            if user is None:
+                await registerUser(user_info)
+            else:
+                print("User is already registered.")
 
-        loadSession(user_info['email'])
+            loadSession(user_info['email'])
 
-    except Exception as e:
-        print(f"Error: {e}\n\n")
+        except Exception as e:
+            print(f"Error: {e}\n\n")
+            return redirect(url_for("main.home"))
         return redirect(url_for("main.home"))
-    return redirect(url_for("main.home"))
+    return asyncio.run(async_callback())
 
 @main.route("/logout")
 def logout():
@@ -214,29 +219,37 @@ def logout():
 @main.route("/api/list/<folder_uuid>")
 @api_require_auth
 def list_directory(folder_uuid):
-    print("Directory List Request")
-    user_uuid = session['uuid']
-    pwd = Folder.query.filter_by(uuid=folder_uuid).first()
-    child_folders = Folder.query.filter_by(parent=pwd.uuid)
-    child_files = File.query.filter_by(folder=pwd.uuid)
-    folder_objects = []
+    async def async_list_directory(folder_uuid):
+        folder_uuid_u = uuid.UUID(folder_uuid)
+        print(f"Directory List Request uuid: {folder_uuid}")
+        user_uuid = session['uuid']
+        pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
+        print("Got Folder Info")
+        child_folders = Folder.query.filter_by(parent=pwd.uuid)
+        print("Got Child Folders")
+        child_files = File.query.filter_by(folder=pwd.uuid)
+        print("Got Child Files")
+        folder_objects = []
 
-    for folder in child_folders:
-        if checkUserAccess(user_uuid,"read", folder.uuid):
-            folder_objects.apend({
-                "uuid": folder.uuid,
-                "name": folder.name,
-                "type": "folder"
-            })
-    
-    for file in child_files:
-        if checkUserAccess(user_uuid, "read", "file", file.uuid):
-            folder_objects.append({
-                "uuid": file.uuid,
-                "name": file.name,
-                "type": "file"
-            })
-    return jsonify(folder_objects)
+        print("Checking child folder permissions")
+        for folder in child_folders:
+            if await fga_check_user_access(user_uuid,"can_read", folder.uuid):
+                folder_objects.apend({
+                    "uuid": folder.uuid,
+                    "name": folder.name,
+                    "type": "folder"
+                })
+        
+        print("Checking child file permissions")
+        for file in child_files:
+            if await fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
+                folder_objects.append({
+                    "uuid": file.uuid,
+                    "name": file.name,
+                    "type": "file"
+                })
+        return jsonify(folder_objects)
+    return asyncio.run(async_list_directory(folder_uuid))
 
 @main.route("/")
 def home():
