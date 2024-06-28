@@ -3,15 +3,28 @@ from urllib.parse import quote_plus, urlencode
 from os import environ as env
 import json
 from app import oauth, db, fga_client
-from app.models import User
+from app.models import User, Group, File, Folder
 import uuid
 import os
 import asyncio
+from openfga_sdk.client import OpenFgaClient
+from openfga_sdk.client.models import ClientTuple, ClientWriteRequest
 
 
 main = Blueprint('main', __name__)
 
-
+async def fga_relate_user_folder(user_uuid,folder_uuid,relation):
+    body = ClientWriteRequest(
+            writes=[
+                    ClientTuple(
+                        user=f"user:{user_uuid}",
+                        relation=relation,
+                        object=f"folder:{folder_uuid}",
+                    ),
+            ],
+    )
+    response = await fga_client.write(body)
+    return response
 
 
 def loadSession(email):
@@ -40,6 +53,9 @@ def registerUser(user_info):
     db.session.commit()
     print("User Registered in database")
 
+    #Create Default Folder for new user
+    createDefaultFolder(user.id)
+
     return True
 
 def createDefaultFolder(user_id):
@@ -48,7 +64,21 @@ def createDefaultFolder(user_id):
     if user is None:
         return False
     
-    
+    folder_name = f"{user.name}'s Folder"
+    new_uuid = uuid.uuid4()
+    folder = Folder(uuid=new_uuid, creator=user.id, name=folder_name, default_folder=True)
+    db.session.add(folder)
+    db.session.commit()
+
+    #Create owner relationship between user and folder
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    response = loop.run_until_complete(fga_relate_user_folder(user.uuid, new_uuid, "owner"))
+
+    return response
+
+
 
 
 

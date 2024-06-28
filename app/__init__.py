@@ -16,16 +16,17 @@ oauth = OAuth()
 fga_client = None
 
 async def initialize_fga_client():
+    print("Initializing OpenFGA Client SDK")
     configuration = ClientConfiguration(
-        api_url = os.getenv('FGA_API_URL'), # required, e.g. https://api.fga.example
-        store_id = os.getenv('FGA_STORE_ID'), # optional, not needed for `CreateStore` and `ListStores`, required before calling for all other methods
-        authorization_model_id = os.getenv('FGA_MODEL_ID'), # Optional, can be overridden per request
+        api_url = os.getenv('FGA_API_URL'), 
+        store_id = os.getenv('FGA_STORE_ID'), 
+        authorization_model_id = os.getenv('FGA_MODEL_ID'), 
     )
 
     global fga_client
-    async with OpenFgaClient(configuration) as fga_client:
-        api_response = await fga_client.read_authorization_models()
-        await fga_client.close()
+    fga_client = OpenFgaClient(configuration)
+    await fga_client.read_authorization_models()
+    print("FGA Client initialized.")
 
 def create_app():
     app = Flask(__name__)
