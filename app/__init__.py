@@ -43,9 +43,9 @@ def create_app():
         async with app.app_context():
             db.create_all()
 
-    @app.before_serving
-    async def startup():
-        await create_tables()
+    app.before_serving(create_tables)
+
+    
 
     return app
 
