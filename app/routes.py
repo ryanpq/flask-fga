@@ -46,6 +46,23 @@ async def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
     response = await fga_client.write(body)
     return response
 
+async def fga_relate_objects(object1_type,object1_uuid,object2_uuid,object2_type,relation):
+
+    if fga_client is None:
+        await initialize_fga_client()
+
+    body = ClientWriteRequest(
+            writes=[
+                    ClientTuple(
+                        user=f"{object1_type}:{object1_uuid}",
+                        relation=relation,
+                        object=f"{object2_type}:{object2_uuid}",
+                    ),
+            ],
+    )
+    response = await fga_client.write(body)
+    return response
+
 async def fga_check_user_access(user_uuid,action,object_type,object_uuid):
     if fga_client is None:
         await initialize_fga_client()
@@ -164,7 +181,24 @@ async def createDefaultFile(user_id, folder_id):
 
     return True
 
+async def createNewFolder(parent_uuid,name,user_id):
+    user = User.query.filter_by(id=user_id).first()
 
+    if user is None:
+        return False
+    
+    new_uuid = uuid.uuid4()
+    folder = Folder(uuid=new_uuid, parent=parent_uuid, default_folder=False, creator=user_id, name=name)
+    db.session.add(folder)
+    db.session.commit()
+
+    print(f"New folder {name} created, creating new authorization tuple")
+
+    await fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
+
+    await fga_relate_objects("folder", parent_uuid, "folder", new_uuid, "parent")
+
+    return True
 
 
 # Route Handers
@@ -177,29 +211,28 @@ def login():
     )
 
 @main.route("/callback", methods=["GET", "POST"])
-def callback():
-    async def async_callback():
-        try:
-            token = oauth.auth0.authorize_access_token()
-            print(f"TOKEN: {token}\n\n\n")
-            session["user"] = token
+async def callback():
+    try:
+        token = oauth.auth0.authorize_access_token()
+        print(f"TOKEN: {token}\n\n\n")
+        session["user"] = token
 
-            user_info = token['userinfo']
-            
+        user_info = token['userinfo']
+        
 
-            user = User.query.filter_by(email=user_info['email']).first()
-            if user is None:
-                await registerUser(user_info)
-            else:
-                print("User is already registered.")
+        user = User.query.filter_by(email=user_info['email']).first()
+        if user is None:
+            await registerUser(user_info)
+        else:
+            print("User is already registered.")
 
-            loadSession(user_info['email'])
+        loadSession(user_info['email'])
 
-        except Exception as e:
-            print(f"Error: {e}\n\n")
-            return redirect(url_for("main.home"))
+    except Exception as e:
+        print(f"Error: {e}\n\n")
         return redirect(url_for("main.home"))
-    return asyncio.run(async_callback())
+    return redirect(url_for("main.home"))
+    
 
 @main.route("/logout")
 def logout():
@@ -218,39 +251,56 @@ def logout():
 
 @main.route("/api/list/<folder_uuid>")
 @api_require_auth
-def list_directory(folder_uuid):
-    async def async_list_directory(folder_uuid):
-        folder_uuid_u = uuid.UUID(folder_uuid)
-        print(f"Directory List Request uuid: {folder_uuid}")
-        user_uuid = session['uuid']
-        pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
-        print("Got Folder Info")
-        child_folders = Folder.query.filter_by(parent=pwd.uuid)
-        print("Got Child Folders")
-        child_files = File.query.filter_by(folder=pwd.uuid)
-        print("Got Child Files")
-        folder_objects = []
+async def list_directory(folder_uuid):
+    folder_uuid_u = uuid.UUID(folder_uuid)
+    print(f"Directory List Request uuid: {folder_uuid}")
+    user_uuid = session['uuid']
+    pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
+    print("Got Folder Info")
+    child_folders = Folder.query.filter_by(parent=pwd.uuid)
+    print("Got Child Folders")
+    child_files = File.query.filter_by(folder=pwd.uuid)
+    print("Got Child Files")
+    folder_objects = []
 
-        print("Checking child folder permissions")
-        for folder in child_folders:
-            if await fga_check_user_access(user_uuid,"can_read", folder.uuid):
-                folder_objects.apend({
-                    "uuid": folder.uuid,
-                    "name": folder.name,
-                    "type": "folder"
-                })
+    print("Checking child folder permissions")
+    for folder in child_folders:
+        if await fga_check_user_access(user_uuid,"can_read", folder.uuid):
+            folder_objects.apend({
+                "uuid": folder.uuid,
+                "name": folder.name,
+                "type": "folder"
+            })
+    
+    print("Checking child file permissions")
+    for file in child_files:
+        if await fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
+            folder_objects.append({
+                "uuid": file.uuid,
+                "name": file.name,
+                "type": "file"
+            })
+    return jsonify(folder_objects)
+
+@main.route("/api/create_folder/<folder_uuid>", methods=["POST"])
+@api_require_auth
+async def create_folder(folder_uuid):
+    name = request.args.get('name')
+    print(f"Creating folder in uuid: {folder_uuid}")
+    folder_uuid_u = uuid.UUID(folder_uuid)
+    user_id = session['user_id']
+    user_uuid = session['uuid']
+    pwd = Folder.query.filter_by(uuid=folder_uuid_u)
+
+    if await fga_check_user_access(user_uuid, "can_create_file", "folder", folder_uuid):
+        await createNewFolder(folder_uuid_u,name,user_id)
+    else:
+        print("Access Denied to create folder")
+        return jsonify({'result': 'access denied'}), 403
+
+    return jsonify({'result': 'success'})
+
         
-        print("Checking child file permissions")
-        for file in child_files:
-            if await fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
-                folder_objects.append({
-                    "uuid": file.uuid,
-                    "name": file.name,
-                    "type": "file"
-                })
-        return jsonify(folder_objects)
-    return asyncio.run(async_list_directory(folder_uuid))
-
 @main.route("/")
 def home():
     if session:

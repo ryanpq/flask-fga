@@ -32,8 +32,8 @@
                         height="32" alt="Avatar" loading="lazy" />
                     </a>
                     <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton1">
-                      <li><a class="dropdown-item" href="#">Profile</a></li>  
-                      <li><a class="dropdown-item text-danger" href="/logout">Log Out</a></li>
+                      <li><a class="dropdown-item" href="#"><i class="bi bi-person-circle"></i> Profile</a></li>  
+                      <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                       
                     </div>
                   </div>
@@ -48,8 +48,22 @@
           <div class="container py-5">
             {% if session %}
                 {% if pwd %}
-                    <h2>{{ pwd.name }}</h2>
+                    
                     <input type="hidden" id="pwd" value="{{pwd.uuid}}">
+                    <div class="p-2 d-flex justify-content-between align-items-center">
+                        <h4>{{ pwd.name }}</h4>
+                        <div class="btn-group" role="group" aria-label="Tools">
+                            <span data-bs-toggle="modal" data-bs-target="#fileModal">
+                                <a href="#" class="text-success btn btn-success text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
+                            </span>
+                            <span data-bs-toggle="modal" data-bs-target="#folderModal">
+                            <a href="#" class="text-success btn btn-warning text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New Folder"><i class="bi bi-folder-plus"></i></a>
+                            </span>
+                            <span data-bs-toggle="modal" data-bs-target="#shareModal">
+                            <a href="#" class="text-success btn btn-primary text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="Share Folder"><i class="bi bi-share-fill"></i></a>
+                            </span>
+                        </div> 
+                    </div>
                     <hr>
                     <div id="folder_content" class="d-flex flex-wrap"></div>
                 {% else %}
@@ -65,9 +79,109 @@
             {% endif %}
         </div>
 
+        <div class="modal fade" id="fileModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">New File</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fileNameInput" class="form-label">File Name</label>
+                        <input class="form-control" id="fileNameInput" aria-describedby="fileNameHelp">
+                        <div id="fileNameHelp" class="form-text">Enter a name for your new file</div>
+                      </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-success">Create File</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="folderModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">New Folder</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="folderNameInput" class="form-label">Folder Name</label>
+                        <input class="form-control" id="folderNameInput" aria-describedby="folderNameHelp">
+                        <div id="folderNameHelp" class="form-text">Enter a name for your new folder</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" id="createFolderButton" class="btn btn-success">Create Folder</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">Share Folder</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="shareInput" class="form-label">Share this folder with</label>
+                        <input type="email" class="form-control" id="shareInput" aria-describedby="shareHelp">
+                        <div id="shareHelp" class="form-text">Share this folder with the email address specified (must be registered)</div>
+                      </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-info" disabled="disabled">Share Folder</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         <script>
             $(document).ready(function(){
                 loadDir();
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+                })
+
+                $('#createFolderButton').click(function(){
+                    folder_name = $('#folderNameInput').val();
+                    $('folderNameInput').val("");
+
+                    var folderModalEl = document.getElementById('folderModal')
+                    var folderModal = bootstrap.Modal.getInstance(folderModalEl)
+
+                   
+                    folderModal.hide();
+
+                    var pwd = $("#pwd").val();
+                    if (pwd == "") {
+                        return;
+                    }
+
+                    $.ajax({
+                    url: "/api/create_folder/" + pwd,
+                    method: "POST",
+                    data: { name: folder_name},
+                    success: function(data){
+                        loadDir();
+                    },
+                    error: function(error) {
+                        console.error("Error creating directory:", error);
+                    }
+                });
+
+                });
+
             });
 
             function loadDir(){
@@ -84,7 +198,7 @@
                             var icon = item.type === "file" ? "bi-file-text" : "bi-folder-fill";
                             var element = `
                                 <div class="p-2 d-flex flex-column align-items-center">
-                                    <i class="bi ${icon}" style="font-size: 2rem;"></i>
+                                    <i class="bi ${icon}" style="font-size: 4rem;"></i>
                                     <div class="filename">${item.name}</div>
                                 </div>
                             `;
