@@ -46,8 +46,12 @@
 
           <div class="container py-5">
             {% if session %}
-
-                <pre>{{pretty}}</pre>
+                {% if pwd %}
+                    <h2>{{ pwd.name }}</h2>
+                {% else %}
+                    <h2 class="text-danger">Error: Default folder not found</h2>
+                    <pre>{{pretty}}</pre>
+                {% endif %}
                 <hr>
                 <img src="{{user.get('image')}}" width="32" referrerpolicy="no-referrer"/>
                 <p>UUID: {{user.get('uuid')}}</p>

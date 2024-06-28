@@ -28,7 +28,7 @@ async def initialize_fga_client():
     await fga_client.read_authorization_models()
     print("FGA Client initialized.")
 
-async def fga_relate_user_folder(user_uuid,folder_uuid,relation):
+async def fga_relate_user_object(user_uuid,folder_uuid,object_type,relation):
 
     if fga_client is None:
         await initialize_fga_client()
@@ -38,7 +38,7 @@ async def fga_relate_user_folder(user_uuid,folder_uuid,relation):
                     ClientTuple(
                         user=f"user:{user_uuid}",
                         relation=relation,
-                        object=f"folder:{folder_uuid}",
+                        object=f"{object_type}:{folder_uuid}",
                     ),
             ],
     )
@@ -53,6 +53,7 @@ def loadSession(email):
     if user is None:
         return False
     
+    session["user_id"] = user.id
     session["uuid"] = user.uuid
     session["name"] = user.name
     session["image"] = user.image
@@ -96,7 +97,7 @@ async def createDefaultFolder(user_id):
     db.session.add(folder)
     db.session.commit()
 
-    await fga_relate_user_folder(user.uuid, new_uuid, "owner")
+    await fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
     
 
     return True
@@ -150,6 +151,18 @@ def logout():
         )
     )
 
+@main.route("/api/list/<str:folder_uuid>")
+def list_directory():
+    print("Directory List Request")
+    
+
 @main.route("/")
 def home():
-    return render_template("home.html", session=session.get('user'), user=session, pretty=json.dumps(session.get("user"), indent=4))
+    if session:
+        # If a user is authenticated, fetch their default folder
+        user_id = session.get('user_id')
+        user_folder = Folder.query.filter_by(creator=user_id, default_folder=True).first()
+    else:
+        user_folder = None
+
+    return render_template("home.html", session=session.get('user'),pwd=user_folder, user=session, pretty=json.dumps(session.get("user"), indent=4))
