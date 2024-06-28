@@ -17,6 +17,7 @@ class Group(db.Model):
 class File(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     uuid = db.Column(db.Uuid, unique=True, nullable=False)
+    folder = db.Column(db.Uuid, nullable=False)
     name = db.Column(db.String(128), nullable=True)
     text_content = db.Column(db.Text, nullable=True)
     binary_content = db.Column(db.LargeBinary, nullable=True)
@@ -30,6 +31,6 @@ class Folder(db.Model):
     creator = db.Column(db.Integer)
     name = db.Column(db.String(128))
     default_folder = db.Column(db.Boolean, default=False)
-    parent = db.Column(db.Integer, nullable=True)
+    parent = db.Column(db.Uuid, nullable=True)
     created = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated = db.Column(db.DateTime, default=datetime.datetime.utcnow)

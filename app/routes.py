@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, request
+from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
 from urllib.parse import quote_plus, urlencode
 from os import environ as env
 import json
@@ -8,7 +8,8 @@ import uuid
 import os
 import asyncio
 from openfga_sdk.client import OpenFgaClient, ClientConfiguration
-from openfga_sdk.client.models import ClientTuple, ClientWriteRequest
+from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest
+from functools import wraps
 
 
 main = Blueprint('main', __name__)
@@ -45,6 +46,41 @@ async def fga_relate_user_object(user_uuid,folder_uuid,object_type,relation):
     response = await fga_client.write(body)
     return response
 
+async def fga_check_user_access(user_uuid,action,object_type,object_uuid):
+    if fga_client is None:
+        await initialize_fga_client()
+        body = ClientCheckRequest(
+        user=f"user:{user_uuid}",
+        relation=action,
+        object=f"{object_type}:{object_uuid}",
+    )
+
+    response = await fga_client.check(body)
+    return response.allowed
+
+def checkUserAccess(user_uuid,action,object_type,object_uuid):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(fga_check_user_access(user_uuid,action,object_type,object_uuid))
+
+    return result
+    
+
+def require_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('main.home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def api_require_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return jsonify({"error": "Permission denied - no authenticated user"}), 403
+        return f(*args,**kwargs)
+    return decorated_function
 
 def loadSession(email):
     print(f"Loading User Info from database for {email}")
@@ -103,8 +139,7 @@ async def createDefaultFolder(user_id):
     return True
 
 
-
-
+# Route Handers
 
 
 @main.route("/login")
@@ -152,9 +187,18 @@ def logout():
     )
 
 @main.route("/api/list/<str:folder_uuid>")
-def list_directory():
+@api_require_auth
+def list_directory(folder_uuid):
     print("Directory List Request")
-    
+    pwd = Folder.query.filter_by(uuid=folder_uuid).first()
+    child_folders = Folder.query.filter_by(parent=pwd.uuid)
+    child_files = File.query.filter_by(folder=pwd.uuid)
+    folder_objects = []
+
+    for folder in child_folders:
+        if checkUserAccess(session['uuid'],"read", folder.uuid):
+            
+
 
 @main.route("/")
 def home():
