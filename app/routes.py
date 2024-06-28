@@ -257,16 +257,16 @@ async def list_directory(folder_uuid):
     user_uuid = session['uuid']
     pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
     print("Got Folder Info")
-    child_folders = Folder.query.filter_by(parent=pwd.uuid)
+    child_folders = Folder.query.filter_by(parent=pwd.uuid).all()
     print("Got Child Folders")
-    child_files = File.query.filter_by(folder=pwd.uuid)
+    child_files = File.query.filter_by(folder=pwd.uuid).all()
     print("Got Child Files")
     folder_objects = []
 
     print("Checking child folder permissions")
     for folder in child_folders:
         if await fga_check_user_access(user_uuid,"can_read", folder.uuid):
-            folder_objects.apend({
+            folder_objects.append({
                 "uuid": folder.uuid,
                 "name": folder.name,
                 "type": "folder"
