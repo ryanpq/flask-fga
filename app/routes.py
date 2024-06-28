@@ -185,13 +185,34 @@ def createNewFolder(parent_uuid,name,user_id):
     db.session.add(folder)
     db.session.commit()
 
-    print(f"New folder {name} created, creating new authorization tuple")
+    print(f"New folder {name} created, creating new authorization tuples")
 
     fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
 
     print(f"Created ownership.  Now creating parent-child relationship between {parent_uuid} and {new_uuid}")
 
     fga_relate_objects("folder", parent_uuid, "folder", new_uuid, "parent")
+
+    return True
+
+def createNewFile(parent_uuid, name, user_id, content):
+    user = User.query.filter_by(id=user_id).first()
+
+    if user is None:
+        return False
+    
+    new_uuid = uuid.uuid4()
+
+    print(f"Creating a new file named {name} in directory {parent_uuid} for user_id {user_id}")
+
+    file = File(uuid=new_uuid, folder=parent_uuid, creator=user_id, name=name, text_content=content)
+    db.session.add(file)
+    db.session.commit()
+
+    print(f"New File {name} created, creating new authorization tuples")
+
+    fga_relate_user_object(user.uuid, new_uuid, "file", "owner")
+    fga_relate_objects("folder", parent_uuid, "file", new_uuid, "parent")
 
     return True
 
@@ -252,11 +273,22 @@ def list_directory(folder_uuid):
     user_uuid = session['uuid']
     pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
     print("Got Folder Info")
-    child_folders = Folder.query.filter_by(parent=pwd.uuid)
+    child_folders = Folder.query.filter_by(parent=pwd.uuid).all()
     print("Got Child Folders")
-    child_files = File.query.filter_by(folder=pwd.uuid)
+    child_files = File.query.filter_by(folder=pwd.uuid).all()
     print("Got Child Files")
     folder_objects = []
+
+    print("Checking for parent folder")
+    if pwd.parent is not None:
+        parent_dir = Folder.query.filter_by(uuid=pwd.parent).first()
+        if fga_check_user_access(user_uuid, "viewer", "folder", parent_dir.uuid):
+            folder_objects.append({
+                "uuid": parent_dir.uuid,
+                "name": "..",
+                "type": "folder"
+            })
+        
 
     print("Checking child folder permissions")
     for folder in child_folders:
@@ -269,13 +301,24 @@ def list_directory(folder_uuid):
     
     print("Checking child file permissions")
     for file in child_files:
+        print(f"Found File {file.name}")
         if fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
+            print(f"Access to file {file.name} granted")
             folder_objects.append({
                 "uuid": file.uuid,
                 "name": file.name,
                 "type": "file"
             })
-    return jsonify(folder_objects)
+        else:
+            print(f"Access to file {file.name} denied")
+
+
+    client_response = {
+        "folder_uuid": str(pwd.uuid),
+        "folder_name": pwd.name,
+        "contents": folder_objects
+    }
+    return jsonify(client_response)
 
 @main.route("/api/create_folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
@@ -285,7 +328,7 @@ def create_folder(folder_uuid):
     folder_uuid_u = uuid.UUID(folder_uuid)
     user_id = session['user_id']
     user_uuid = session['uuid']
-    pwd = Folder.query.filter_by(uuid=folder_uuid_u)
+    pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
 
     if fga_check_user_access(user_uuid, "can_create_file", "folder", folder_uuid):
         createNewFolder(folder_uuid_u,name,user_id)
@@ -295,6 +338,25 @@ def create_folder(folder_uuid):
 
     return jsonify({'result': 'success'})
 
+@main.route("/api/create_file/<folder_uuid>", methods=["POST"])
+@api_require_auth
+def create_file(folder_uuid):
+    name = request.form['name']
+    content = request.form['content']
+    print(f"Creating file named {name} in uuid: {folder_uuid}")
+    folder_uuid_u = uuid.UUID(folder_uuid)
+    user_id = session['user_id']
+    user_uuid = session['uuid']
+    pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
+
+    if fga_check_user_access(user_uuid, "can_create_file", "folder", pwd.uuid):
+        print(f"User has permission.  Creating new file named {name} in folder {pwd.name}:{folder_uuid}")
+        createNewFile(folder_uuid_u, name, user_id, content)
+    else:
+        print("Access Denied to create a file here"), 403
+        return jsonify({'result': 'access denied'})
+
+    return jsonify({'result': 'success'})
         
 @main.route("/")
 def home():
