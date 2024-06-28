@@ -7,7 +7,8 @@ from app.models import User, Group, File, Folder
 import uuid
 import os
 import asyncio
-from openfga_sdk.client import OpenFgaClient, ClientConfiguration
+from openfga_sdk.client import ClientConfiguration
+from openfga_sdk.sync import OpenFgaClient
 from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest
 from functools import wraps
 
@@ -16,7 +17,7 @@ main = Blueprint('main', __name__)
 
 fga_client = None
 
-async def initialize_fga_client():
+def initialize_fga_client():
     print("Initializing OpenFGA Client SDK")
     configuration = ClientConfiguration(
         api_url = os.getenv('FGA_API_URL'), 
@@ -26,13 +27,13 @@ async def initialize_fga_client():
 
     global fga_client
     fga_client = OpenFgaClient(configuration)
-    await fga_client.read_authorization_models()
+    fga_client.read_authorization_models()
     print("FGA Client initialized.")
 
-async def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
+def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
 
     if fga_client is None:
-        await initialize_fga_client()
+        initialize_fga_client()
 
     body = ClientWriteRequest(
             writes=[
@@ -43,13 +44,13 @@ async def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
                     ),
             ],
     )
-    response = await fga_client.write(body)
+    response = fga_client.write(body)
     return response
 
-async def fga_relate_objects(object1_type,object1_uuid,object2_uuid,object2_type,relation):
+def fga_relate_objects(object1_type,object1_uuid,object2_type,object2_uuid,relation):
 
     if fga_client is None:
-        await initialize_fga_client()
+        initialize_fga_client()
 
     body = ClientWriteRequest(
             writes=[
@@ -60,12 +61,12 @@ async def fga_relate_objects(object1_type,object1_uuid,object2_uuid,object2_type
                     ),
             ],
     )
-    response = await fga_client.write(body)
+    response = fga_client.write(body)
     return response
 
-async def fga_check_user_access(user_uuid,action,object_type,object_uuid):
+def fga_check_user_access(user_uuid,action,object_type,object_uuid):
     if fga_client is None:
-        await initialize_fga_client()
+        initialize_fga_client()
 
     print(f"Checking user: {user_uuid} for {action} permission on the {object_type} {object_uuid}")
 
@@ -75,20 +76,12 @@ async def fga_check_user_access(user_uuid,action,object_type,object_uuid):
         object=f"{object_type}:{object_uuid}",
     )
 
-    response = await fga_client.check(body)
+    response = fga_client.check(body)
     return response.allowed
 
-def checkUserAccess(user_uuid,action,object_type,object_uuid):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(fga_check_user_access(user_uuid,action,object_type,object_uuid))
-
-    return result
-
 def relateUserObject(user_uuid,object_uuid,object_type,relation):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(fga_relate_user_object(user_uuid,object_uuid,object_type,relation))
+    
+    result = fga_relate_user_object(user_uuid,object_uuid,object_type,relation)
 
     return result
     
@@ -123,7 +116,7 @@ def loadSession(email):
 
     return True
 
-async def registerUser(user_info):
+def registerUser(user_info):
     email = user_info['email']
     name = user_info['name']
     image = user_info['picture']
@@ -137,13 +130,13 @@ async def registerUser(user_info):
     print("User Registered in database")
 
     #Create Default Folder for new user
-    folder_id = await createDefaultFolder(user.id)
+    folder_id = createDefaultFolder(user.id)
 
-    await createDefaultFile(user.id,folder_id)
+    createDefaultFile(user.id,folder_id)
 
     return True
 
-async def createDefaultFolder(user_id):
+def createDefaultFolder(user_id):
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -155,12 +148,12 @@ async def createDefaultFolder(user_id):
     db.session.add(folder)
     db.session.commit()
 
-    await fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
+    fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
     
 
     return folder.id
 
-async def createDefaultFile(user_id, folder_id):
+def createDefaultFile(user_id, folder_id):
     user = User.query.filter_by(id=user_id).first()
     folder = Folder.query.filter_by(id=folder_id).first()
 
@@ -177,11 +170,11 @@ async def createDefaultFile(user_id, folder_id):
 
     print("Default file created, updating authorization tuple")
 
-    await fga_relate_user_object(user.uuid, new_uuid, "file", "owner")
+    fga_relate_user_object(user.uuid, new_uuid, "file", "owner")
 
     return True
 
-async def createNewFolder(parent_uuid,name,user_id):
+def createNewFolder(parent_uuid,name,user_id):
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -194,9 +187,11 @@ async def createNewFolder(parent_uuid,name,user_id):
 
     print(f"New folder {name} created, creating new authorization tuple")
 
-    await fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
+    fga_relate_user_object(user.uuid, new_uuid, "folder", "owner")
 
-    await fga_relate_objects("folder", parent_uuid, "folder", new_uuid, "parent")
+    print(f"Created ownership.  Now creating parent-child relationship between {parent_uuid} and {new_uuid}")
+
+    fga_relate_objects("folder", parent_uuid, "folder", new_uuid, "parent")
 
     return True
 
@@ -211,7 +206,7 @@ def login():
     )
 
 @main.route("/callback", methods=["GET", "POST"])
-async def callback():
+def callback():
     try:
         token = oauth.auth0.authorize_access_token()
         print(f"TOKEN: {token}\n\n\n")
@@ -222,7 +217,7 @@ async def callback():
 
         user = User.query.filter_by(email=user_info['email']).first()
         if user is None:
-            await registerUser(user_info)
+            registerUser(user_info)
         else:
             print("User is already registered.")
 
@@ -251,7 +246,7 @@ def logout():
 
 @main.route("/api/list/<folder_uuid>")
 @api_require_auth
-async def list_directory(folder_uuid):
+def list_directory(folder_uuid):
     folder_uuid_u = uuid.UUID(folder_uuid)
     print(f"Directory List Request uuid: {folder_uuid}")
     user_uuid = session['uuid']
@@ -265,7 +260,7 @@ async def list_directory(folder_uuid):
 
     print("Checking child folder permissions")
     for folder in child_folders:
-        if await fga_check_user_access(user_uuid,"can_read", folder.uuid):
+        if fga_check_user_access(user_uuid, "viewer", "folder", folder.uuid):
             folder_objects.append({
                 "uuid": folder.uuid,
                 "name": folder.name,
@@ -274,7 +269,7 @@ async def list_directory(folder_uuid):
     
     print("Checking child file permissions")
     for file in child_files:
-        if await fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
+        if fga_check_user_access(user_uuid, "can_read", "file", file.uuid):
             folder_objects.append({
                 "uuid": file.uuid,
                 "name": file.name,
@@ -284,16 +279,16 @@ async def list_directory(folder_uuid):
 
 @main.route("/api/create_folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
-async def create_folder(folder_uuid):
-    name = request.args.get('name')
-    print(f"Creating folder in uuid: {folder_uuid}")
+def create_folder(folder_uuid):
+    name = request.form['name']
+    print(f"Creating folder named {name} in uuid: {folder_uuid}")
     folder_uuid_u = uuid.UUID(folder_uuid)
     user_id = session['user_id']
     user_uuid = session['uuid']
     pwd = Folder.query.filter_by(uuid=folder_uuid_u)
 
-    if await fga_check_user_access(user_uuid, "can_create_file", "folder", folder_uuid):
-        await createNewFolder(folder_uuid_u,name,user_id)
+    if fga_check_user_access(user_uuid, "can_create_file", "folder", folder_uuid):
+        createNewFolder(folder_uuid_u,name,user_id)
     else:
         print("Access Denied to create folder")
         return jsonify({'result': 'access denied'}), 403

@@ -51,7 +51,7 @@
                     
                     <input type="hidden" id="pwd" value="{{pwd.uuid}}">
                     <div class="p-2 d-flex justify-content-between align-items-center">
-                        <h4>{{ pwd.name }}</h4>
+                        <h4 id="folder_name">{{ pwd.name }}</h4>
                         <div class="btn-group" role="group" aria-label="Tools">
                             <span data-bs-toggle="modal" data-bs-target="#fileModal">
                                 <a href="#" class="text-success btn btn-success text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
@@ -155,7 +155,8 @@
 
                 $('#createFolderButton').click(function(){
                     folder_name = $('#folderNameInput').val();
-                    $('folderNameInput').val("");
+                    console.log("Creating Folder " +folder_name)
+                    
 
                     var folderModalEl = document.getElementById('folderModal')
                     var folderModal = bootstrap.Modal.getInstance(folderModalEl)
@@ -184,6 +185,16 @@
 
             });
 
+            function load_folder(uuid, name){
+                $('#pwd').val(uuid);
+                $('#folder_name').html(name);
+                loadDir();
+            }
+
+            function load_file(uuid, name){
+                console.log("Load file "+ uuid + " named "+ name);
+            }
+
             function loadDir(){
                 var pwd = $("#pwd").val();
                 if (pwd == "") {
@@ -194,10 +205,11 @@
                     url: "/api/list/" + pwd,
                     method: "GET",
                     success: function(data){
+                        $('#folder_content').html("");
                         data.forEach(function(item){
                             var icon = item.type === "file" ? "bi-file-text" : "bi-folder-fill";
                             var element = `
-                                <div class="p-2 d-flex flex-column align-items-center">
+                                <div class="p-2 d-flex flex-column align-items-center icon_item" onclick="load_${item.type}('${item.uuid}','${item.name}')">
                                     <i class="bi ${icon}" style="font-size: 4rem;"></i>
                                     <div class="filename">${item.name}</div>
                                 </div>
