@@ -39,11 +39,10 @@ def create_app():
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
-    async def create_tables():
-        async with app.app_context():
+    @app.before_serving
+    async def startup():
+        with app.app_context():
             db.create_all()
-
-    app.before_serving(create_tables)
 
     
 
