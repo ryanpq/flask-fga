@@ -1,4 +1,4 @@
-from quart import Quart
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
@@ -16,7 +16,7 @@ oauth = OAuth()
 
 
 def create_app():
-    app = Quart(__name__)
+    app = Flask(__name__)
 
     app.config.from_object('config.Config')
     db.init_app(app)
@@ -39,10 +39,8 @@ def create_app():
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
-    @app.before_serving
-    async def startup():
-        with app.app_context():
-            db.create_all()
+    with app.app_context():
+        db.create_all()
 
     
 

@@ -257,9 +257,9 @@ async def list_directory(folder_uuid):
     user_uuid = session['uuid']
     pwd = Folder.query.filter_by(uuid=folder_uuid_u).first()
     print("Got Folder Info")
-    child_folders = Folder.query.filter_by(parent=pwd.uuid).all()
+    child_folders = Folder.query.filter_by(parent=pwd.uuid)
     print("Got Child Folders")
-    child_files = File.query.filter_by(folder=pwd.uuid).all()
+    child_files = File.query.filter_by(folder=pwd.uuid)
     print("Got Child Files")
     folder_objects = []
 
