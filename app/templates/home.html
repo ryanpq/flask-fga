@@ -87,11 +87,11 @@
             {% endif %}
         </div>
 
-        <div class="modal fade" id="fileModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal fade" id="fileModal" tabindex="-1" aria-labelledby="fileModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title" id="exampleModalLabel">New File</h5>
+                  <h5 class="modal-title" id="fileModalLabel">New File</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -103,8 +103,7 @@
 
                       <div class="mb-3">
                         <label for="fileContentInput" class="form-label">Content</label>
-                        <textarea class="form-control" rows="20" id="fileContentInput" aria-describedby="fileContentHelp">
-                        </textarea>
+                        <textarea class="form-control" rows="20" id="fileContentInput" aria-describedby="fileContentHelp"></textarea>
                         <div id="fileContentHelp" class="form-text">Create your file, click "Create File" to save</div>
                       </div>
                 </div>
@@ -116,11 +115,11 @@
             </div>
           </div>
 
-          <div class="modal fade" id="folderModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+          <div class="modal fade" id="folderModal" tabindex="-1" aria-labelledby="folderModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title" id="exampleModalLabel">New Folder</h5>
+                  <h5 class="modal-title" id="folderModalLabel">New Folder</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -138,11 +137,11 @@
             </div>
           </div>
 
-          <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+          <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title" id="exampleModalLabel">Share Folder</h5>
+                  <h5 class="modal-title" id="shareModalLabel">Share Folder</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -160,6 +159,35 @@
             </div>
           </div>
 
+          <div class="modal fade" id="editFileModal" tabindex="-1" aria-labelledby="editFileModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="editFileModalLabel">Edit File</h5>
+                  <input type="hidden" id="editFileUUID" name="editFileUUID" value="">
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editFileNameInput" class="form-label">File Name</label>
+                        <input class="form-control" id="editFileNameInput" aria-describedby="editFileNameHelp">
+                        <div id="editFileNameHelp" class="form-text"></div>
+                      </div>
+
+                      <div class="mb-3">
+                        <label for="editFileContentInput" class="form-label">Content</label>
+                        <textarea class="form-control" rows="20" id="editFileContentInput" aria-describedby="fileContentHelp"></textarea>
+                        <div id="editFileContentHelp" class="form-text">Edit your file, click Save to save your changes</div>
+                      </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" id="saveFileButton" class="btn btn-success">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         <script>
             $(document).ready(function(){
                 loadDir();
@@ -168,9 +196,35 @@
                 return new bootstrap.Tooltip(tooltipTriggerEl)
                 })
                 
+                $('#saveFileButton').click(function(){
+                    file_name = $('#editFileNameInput').val();
+                    file_content = $('#editFileContentInput').val();
+                    file_uuid = $('#editFileUUID').val();
+                    console.log("Saving File "+ file_name +" with content: "+ file_content);
+
+                    $.ajax({
+                        url: "/api/save_file/" + file_uuid,
+                        method: "POST",
+                        data: { name: file_name, content: file_content},
+                        success: function(data){
+                            loadDir();
+                            var editFileModalEl = document.getElementById('editFileModal');
+                            var editFileModal = bootstrap.Modal.getInstance(editFileModalEl);
+
+                            editFileModal.hide();
+                        },
+                        error: function(error) {
+                            console.error("Error creating directory:", error);
+                        }
+                    });
+
+                    
+
+                });
+
                 $('#createFileButton').click(function(){
                     file_name = $('#fileNameInput').val();
-                    file_content = $('#fileContentInput').text();
+                    file_content = $('#fileContentInput').val();
                     console.log("Creating File "+ file_name);
 
                     var fileModalEl = document.getElementById('fileModal');
@@ -242,6 +296,28 @@
 
             function load_file(uuid, name){
                 console.log("Load file "+ uuid + " named "+ name);
+                pwd = $('#pwd').val();
+
+                $.ajax({
+                    url: "/api/load_file/" + uuid,
+                    method: "GET",
+                    success: function(data){
+                        $('#editFileModalLabel').text("Editing "+data.file_name);
+                        $('#editFileNameInput').val(data.file_name)
+                        $('#editFileContentInput').val(data.file_content);
+                        $('#editFileUUID').val(uuid);
+
+                        var editModalEl = document.getElementById('editFileModal');
+                        var editModal = bootstrap.Modal.getOrCreateInstance(editModalEl);
+
+                        editModal.show();
+
+                        
+                    },
+                    error: function(error) {
+                        console.error("Error loading directory:", error);
+                    }
+                });
             }
 
             function loadDir(){

@@ -11,6 +11,7 @@ from openfga_sdk.client import ClientConfiguration
 from openfga_sdk.sync import OpenFgaClient
 from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest
 from functools import wraps
+import datetime
 
 
 main = Blueprint('main', __name__)
@@ -337,6 +338,79 @@ def create_folder(folder_uuid):
         return jsonify({'result': 'access denied'}), 403
 
     return jsonify({'result': 'success'})
+
+@main.route("/api/load_file/<file_uuid>")
+@api_require_auth
+def load_file(file_uuid):
+    user_id = session['user_id']
+    user_uuid = session['uuid']
+    file_uuid_u = uuid.UUID(file_uuid)
+
+    if fga_check_user_access(user_uuid, "can_read", "file", file_uuid):
+        print("User allowed to read file")
+        read_allowed = True
+        file = File.query.filter_by(uuid=file_uuid_u).first()
+        if fga_check_user_access(user_uuid, "can_write", "file", file_uuid):
+            print("User allowed to write file")
+            write_allowed = True
+
+        else:
+            write_allowed = False
+        
+        client_response = {
+            "authorized": True,
+            "read_allowed": read_allowed,
+            "write_allowed": write_allowed,
+            "file_name": file.name,
+            "file_content": file.text_content
+        }
+        return jsonify(client_response)
+    else:
+        read_allowed = False
+        write_allowed = True
+
+        client_response = {
+            "authorized": False,
+            "read_allowed": read_allowed,
+            "write_allowed": write_allowed,
+            "message": "File access not authorized"
+        }
+        return jsonify(client_response), 403
+
+
+@main.route("/api/save_file/<file_uuid>", methods=["POST"])
+@api_require_auth
+def save_file(file_uuid):
+    name = request.form['name']
+    content = request.form['content']
+    user_uuid = session['uuid']
+    user_id = session['user_id']
+    file_uuid_u = uuid.UUID(file_uuid)
+
+    if fga_check_user_access(user_uuid, "can_write", "file", file_uuid):
+        print("Write authorized")
+        file = File.query.filter_by(uuid=file_uuid_u).first()
+        file.name = name
+        file.text_content = content
+        file.updated = datetime.datetime.utcnow
+        db.session.commit()
+        client_response = {
+            "authorized": True,
+            "write_allowed": True,
+            "result": "success",
+            "message": "Changes saved to file"
+        }
+        return jsonify(client_response), 403
+    else:
+        print("User is not authorized to write this file")
+        client_response = {
+            "authorized": False,
+            "write_allowed": False,
+            "message": "User is not authorized to write file"
+        }
+        return jsonify(client_response), 403
+
+
 
 @main.route("/api/create_file/<folder_uuid>", methods=["POST"])
 @api_require_auth
