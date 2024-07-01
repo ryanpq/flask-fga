@@ -9,7 +9,7 @@ import os
 import asyncio
 from openfga_sdk.client import ClientConfiguration
 from openfga_sdk.sync import OpenFgaClient
-from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest
+from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest, ClientListObjectsRequest
 from functools import wraps
 import datetime
 
@@ -79,6 +79,22 @@ def fga_check_user_access(user_uuid,action,object_type,object_uuid):
 
     response = fga_client.check(body)
     return response.allowed
+
+def fga_list_objects(user_uuid,action,object_type):
+    if fga_client is None:
+        initialize_fga_client()
+
+    print(f"Getting objects of type {object_type} where user {user_uuid} has a {action} relationship.")
+
+    body = ClientListObjectsRequest(
+        user=f"user:{user_uuid}",
+        relation=action,
+        type=object_type,
+    )
+
+    response = fga_client.list_objects(body)
+
+    return response.objects
 
 def relateUserObject(user_uuid,object_uuid,object_type,relation):
     
@@ -441,4 +457,4 @@ def home():
     else:
         user_folder = None
 
-    return render_template("home.html", session=session.get('user'),pwd=user_folder, user=session, pretty=json.dumps(session.get("user"), indent=4))
+    return render_template("main.html", session=session.get('user'),pwd=user_folder, user=session, pretty=json.dumps(session.get("user"), indent=4))
