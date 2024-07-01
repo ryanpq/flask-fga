@@ -74,7 +74,7 @@
 
                             <li class="nav-item mb-3">
                                 <a href="/" class="nav-link align-middle px-0 text-dark">
-                                    <i class="fs-4 bi-folder"></i> <span class="ms-1 d-none d-sm-inline">{{pwd.name}}</span>
+                                    <i class="fs-4 bi-folder-fill text-warning"></i> <span class="ms-1 d-none d-sm-inline">{{pwd.name}}</span>
                                 </a>
                             </li>
 
@@ -110,7 +110,7 @@
                     
                     <input type="hidden" id="pwd" value="{{pwd.uuid}}">
                     <div class="p-2 d-flex justify-content-between align-items-center">
-                        <h4 id="folder_name">{{ pwd.name }}</h4>
+                        <h4 id="folder_name"><i class="fs-4 bi-folder"></i>{{ pwd.name }}</h4>
                         <div class="btn-group" role="group" aria-label="Tools">
                             <span data-bs-toggle="modal" data-bs-target="#fileModal">
                                 <a href="#" class="text-success btn btn-success text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
@@ -389,7 +389,7 @@
                     url: "/api/list/" + pwd,
                     method: "GET",
                     success: function(data){
-                        $('#folder_name').html(data.folder_name);
+                        $('#folder_name').html('<i class="fs-4 bi-folder"></i> '+ data.folder_name);
 
                         $('#folder_content').html("");
                         data.contents.forEach(function(item){
