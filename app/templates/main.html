@@ -21,7 +21,7 @@
         <!-- Top Nav Bar -->
         <nav class="navbar navbar-expand-lg navbar-light bg-secondary">
             <div class="container-fluid">
-              <a class="navbar-brand text-light" href="#">FGA Demo App</a>
+              <a class="navbar-brand text-light" href="#">OpenFGA Demo App</a>
               <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
               </button>
@@ -48,7 +48,7 @@
                   </div>
                    
                 {% else %}
-                    <a href="/login" role="button" class="btn-success btn">Login</a>
+                    <a href="/login" role="button" class="btn-success btn"><i class="fs-4 bi-key"></i> Sign In</a>
                     {% endif %}
               </div>
             </div>
@@ -73,8 +73,8 @@
                             </li>
 
                             <li class="nav-item mb-3">
-                                <a href="/" class="nav-link align-middle px-0 text-dark">
-                                    <i class="fs-4 bi-folder-fill text-warning"></i> <span class="ms-1 d-none d-sm-inline">{{pwd.name}}</span>
+                                <a href="#" onclick="goToHome();" class="nav-link align-middle px-0 text-dark">
+                                    <i class="fs-4 bi-folder-fill text-warning"></i> <span class="ms-1 d-none d-sm-inline">{{user.home_folder_name}}</span>
                                 </a>
                             </li>
 
@@ -87,10 +87,11 @@
 
                             {% else %}
                             
-                            <li class="nav-item">
-                                <a href="/login" class="nav-link align-middle px-0 text-dark">
-                                    <i class="fs-4 bi-key-fill"></i> <span class="ms-1 d-none d-sm-inline">Log In</span>
-                                </a>
+                            <li class="nav-item text-dark">
+                                <span class="navbar-text small">
+                                DEMO APP
+                                </span>
+
                             </li>
 
                             {% endif %}
@@ -112,9 +113,8 @@
                     <div class="p-2 d-flex justify-content-between align-items-center">
                         <h4 id="folder_name"><i class="fs-4 bi-folder"></i>{{ pwd.name }}</h4>
                         <div class="btn-group" role="group" aria-label="Tools">
-                            <span data-bs-toggle="modal" data-bs-target="#fileModal">
-                                <a href="#" class="text-success btn btn-success text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
-                            </span>
+                            <a href="#" class="text-success btn btn-success text-light" id="createNewFileButton" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
+                            
                             <span data-bs-toggle="modal" data-bs-target="#folderModal">
                             <a href="#" class="text-success btn btn-warning text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New Folder"><i class="bi bi-folder-plus"></i></a>
                             </span>
@@ -133,7 +133,16 @@
                 
                 
             {% else %}
-                No User Authenticated
+                <div class="container w-100 text-center">
+                    <h2>OpenFGA Demo App</h2><br>
+                    <p>This app uses <a href="https://auth0.com/" target="_blank">Auth0</a> for authentication with a Google account and <a href="https://openfga.dev/" target="_blank">OpenFGA</a> to manage access and sharing authorization.</p>
+                    
+                    <p>Sign in to get started.</p>
+                    
+                    <a type="button" class="mt-3 btn btn-success text-light btn-lg btn-block" href="/login" ><i class="fs-4 bi-key"></i> Sign In</a>
+
+                    
+                </div>
                 <input type="hidden" id="pwd" value="">
             {% endif %}
         </div>
@@ -147,10 +156,10 @@
         <!-- UI Modals -->
 
         <div class="modal fade" id="fileModal" tabindex="-1" aria-labelledby="fileModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-xl">
               <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="fileModalLabel">New File</h5>
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title" id="fileModalLabel"><i class="fs-4 bi-file-plus text-success"></i> New File</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -177,8 +186,8 @@
           <div class="modal fade" id="folderModal" tabindex="-1" aria-labelledby="folderModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="folderModalLabel">New Folder</h5>
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title" id="folderModalLabel"><i class="fs-4 bi-folder-plus text-warning"></i> New Folder</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -199,8 +208,8 @@
           <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="shareModalLabel">Share Folder</h5>
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title" id="shareModalLabel"><i class="fs-4 bi-share text-primary"></i>  Share Folder</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -219,9 +228,9 @@
           </div>
 
           <div class="modal fade" id="editFileModal" tabindex="-1" aria-labelledby="editFileModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-xl">
               <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-light">
                   <h5 class="modal-title" id="editFileModalLabel">Edit File</h5>
                   <input type="hidden" id="editFileUUID" name="editFileUUID" value="">
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -281,15 +290,11 @@
 
                 });
 
-                $('#createFileButton').click(function(){
-                    file_name = $('#fileNameInput').val();
-                    file_content = $('#fileContentInput').val();
+                $('#createNewFileButton').click(function(){
+                    file_name = "Untitled"
+                    file_content = "";
                     console.log("Creating File "+ file_name);
 
-                    var fileModalEl = document.getElementById('fileModal');
-                    var fileModal = bootstrap.Modal.getInstance(fileModalEl);
-
-                    fileModal.hide();
 
                     var pwd = $("#pwd").val();
                     if (pwd == ""){
@@ -304,7 +309,7 @@
                         data: { name: file_name, content: file_content},
                         success: function(data){
                             console.log("File Created");
-                            loadDir();
+                            window.location.href = "/file/"+data.uuid;
                         },
                         error: function(error) {
                             console.error("Error creating file:", error);
@@ -354,29 +359,12 @@
             }
 
             function load_file(uuid, name){
-                console.log("Load file "+ uuid + " named "+ name);
-                pwd = $('#pwd').val();
+                window.location.href = "/file/"+uuid;
+            }
 
-                $.ajax({
-                    url: "/api/load_file/" + uuid,
-                    method: "GET",
-                    success: function(data){
-                        $('#editFileModalLabel').text("Editing "+data.file_name);
-                        $('#editFileNameInput').val(data.file_name)
-                        $('#editFileContentInput').val(data.file_content);
-                        $('#editFileUUID').val(uuid);
-
-                        var editModalEl = document.getElementById('editFileModal');
-                        var editModal = bootstrap.Modal.getOrCreateInstance(editModalEl);
-
-                        editModal.show();
-
-                        
-                    },
-                    error: function(error) {
-                        console.error("Error loading directory:", error);
-                    }
-                });
+            function goToHome(){
+                $('#pwd').val('{{ user.home_folder}}');
+                loadDir();
             }
 
             function loadDir(){
@@ -408,6 +396,8 @@
                     }
                 });
             }
+
+            
         </script>
 
     </body>

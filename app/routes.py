@@ -131,6 +131,12 @@ def loadSession(email):
     session["name"] = user.name
     session["image"] = user.image
 
+    home_folder = Folder.query.filter_by(creator=user.id,default_folder=True).first()
+
+    session["home_folder"] = home_folder.uuid
+    session["home_folder_name"] = home_folder.name
+    session['pwd'] = home_folder.uuid
+
     return True
 
 def registerUser(user_info):
@@ -231,7 +237,7 @@ def createNewFile(parent_uuid, name, user_id, content):
     fga_relate_user_object(user.uuid, new_uuid, "file", "owner")
     fga_relate_objects("folder", parent_uuid, "file", new_uuid, "parent")
 
-    return True
+    return new_uuid
 
 
 # Route Handers
@@ -295,6 +301,8 @@ def list_directory(folder_uuid):
     child_files = File.query.filter_by(folder=pwd.uuid).all()
     print("Got Child Files")
     folder_objects = []
+
+    session["pwd"] = folder_uuid_u
 
     print("Checking for parent folder")
     if pwd.parent is not None:
@@ -408,7 +416,7 @@ def save_file(file_uuid):
         file = File.query.filter_by(uuid=file_uuid_u).first()
         file.name = name
         file.text_content = content
-        file.updated = datetime.datetime.utcnow
+        file.updated = datetime.datetime.utcnow()
         db.session.commit()
         client_response = {
             "authorized": True,
@@ -416,7 +424,7 @@ def save_file(file_uuid):
             "result": "success",
             "message": "Changes saved to file"
         }
-        return jsonify(client_response), 403
+        return jsonify(client_response)
     else:
         print("User is not authorized to write this file")
         client_response = {
@@ -441,19 +449,107 @@ def create_file(folder_uuid):
 
     if fga_check_user_access(user_uuid, "can_create_file", "folder", pwd.uuid):
         print(f"User has permission.  Creating new file named {name} in folder {pwd.name}:{folder_uuid}")
-        createNewFile(folder_uuid_u, name, user_id, content)
+        file_uuid = createNewFile(folder_uuid_u, name, user_id, content)
     else:
         print("Access Denied to create a file here"), 403
         return jsonify({'result': 'access denied'})
 
-    return jsonify({'result': 'success'})
+    return jsonify({'result': 'success', 'uuid': file_uuid })
+
+@main.route("/api/delete_file/<file_uuid>", methods=["POST"])
+@api_require_auth
+def delete_file(file_uuid):
+    file_uuid_u = uuid.UUID(file_uuid)
+    user_uuid = session['uuid']
+
+    if fga_check_user_access(user_uuid, "can_write", "file", file_uuid_u):
+        print("User authorized with write access can delete file.")
+        File.query.filter_by(uuid=file_uuid).delete()
+        db.session.commit()
+        client_response = {
+            "authorized": True,
+            "success": True,
+            "message": "File Deleted"
+        }
+        return jsonify(client_response)
+    else:
+        print("User is not authorized to delete file")
+        client_response = {
+            "authorized" : False,
+            "success": False,
+            "message": "User not authorized"
+        }
+        return jsonify(client_response), 403
+
+@main.route("/file/<file_uuid>")
+@require_auth
+def file_view(file_uuid):
+    file_uuid_u = uuid.UUID(file_uuid)
+    user_uuid = session.get('uuid')
+
+    if fga_check_user_access(user_uuid, "can_read", "file", file_uuid):
+        print("File access authorized")
+        file = File.query.filter_by(uuid=file_uuid_u).first()
+        creator = User.query.filter_by(id=file.creator).first()
+
+        if fga_check_user_access(user_uuid, "can_write", "file", file_uuid):
+            write_allowed = True
+        else:
+            write_allowed = False
+
+        if fga_check_user_access(user_uuid, "can_share", "file", file_uuid):
+            share_allowed = True
+        else:
+            share_allowed = False
+
         
+        created = datetime.datetime.strftime(file.created, '%d-%b-%Y %H:%M')
+        updated = datetime.datetime.strftime(file.updated, '%d-%b-%Y %H:%M')
+
+        client_response = {
+            "authorized": True,
+            "write_allowed": write_allowed,
+            "share_allowed": share_allowed,
+            "uuid": file_uuid,
+            "name": file.name,
+            "content": file.text_content,
+            "created": created,
+            "modified": updated,
+            "creator_name": creator.name,
+            "creator_image": creator.image
+        }
+        return render_template("file.html", user=session, data=client_response)
+    else:
+        print("Not authorized")
+        client_response = {
+            "authorized": False,
+            "message": "Not authorized to view this file"
+        }
+        return render_template("file.html", user=session, data=client_response), 403
+    
 @main.route("/")
 def home():
     if session:
-        # If a user is authenticated, fetch their default folder
         user_id = session.get('user_id')
-        user_folder = Folder.query.filter_by(creator=user_id, default_folder=True).first()
+        user_uuid = session.get('uuid')
+        if not session.get('pwd'):
+            # If a user is authenticated, fetch their default folder
+            user_folder = Folder.query.filter_by(creator=user_id, default_folder=True).first()
+            session['home_folder'] = user_folder.uuid
+            session['pwd'] = user_folder.pwd
+        else:
+            current_directory = session.get('pwd')
+            u_type = type(current_directory)
+            print(f"Current Folder: {current_directory} Type: {u_type}")
+            
+            if fga_check_user_access(user_uuid,"viewer","folder", current_directory):
+                user_folder = Folder.query.filter_by(uuid=current_directory).first()
+            else:
+                # If user is not authorized to view the folder, give them their default folder
+                user_folder = Folder.query.filter_by(creator=user_id, default_folder=True).first()
+                session['home_folder'] = user_folder.uuid
+                session['home_folder_name'] = user_folder.name
+                session["pwd"] = user_folder.uuid
     else:
         user_folder = None
 
