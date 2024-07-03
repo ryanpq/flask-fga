@@ -11,8 +11,14 @@ class User(db.Model):
 
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(255))
     uuid = db.Column(db.Uuid, unique=True, nullable=False)
     creator = db.Column(db.Integer)
+
+class UserGroup(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    group_id = db.Column(db.Integer, nullable=False)
 
 class File(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)

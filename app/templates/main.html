@@ -15,6 +15,21 @@
             .icon_item:hover {
                 background-color: aliceblue;
             }
+            .suggestion_result {
+                cursor:pointer;
+            }
+            .suggestion_result:hover {
+                background-color: var(--bs-secondary);
+                color: var(--bs-light);
+            }
+            .selected_suggestion {
+                background-color: var(--bs-primary);
+                color: var(--bs-light);
+            }
+            .selected_suggestion:hover {
+                background-color: var(--bs-primary);
+                color: var(--bs-light);
+            }
         </style>
     </head>
     <body>
@@ -41,7 +56,7 @@
                         height="32" alt="Avatar" loading="lazy" />
                     </a>
                     <div class="dropdown-menu dropdown-menu-end text-dark" aria-labelledby="dropdownMenuButton1">
-                      <li><a class="dropdown-item" href="#"><i class="bi bi-person-circle"></i> Profile</a></li>  
+                      <li><a class="dropdown-item" href="/groups"><i class="bi bi-people"></i> Manage Groups</a></li>  
                       <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                       
                     </div>
@@ -81,9 +96,10 @@
                             <li class="nav-item text-dark">
                                 <span class="navbar-text small">
                                 SHARED WITH ME 
-                                </span>
+                                </span> 
 
                             </li>
+                            <div id="sharedWithMeItems"></div>
 
                             {% else %}
                             
@@ -214,55 +230,85 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="shareInput" class="form-label">Share this folder with</label>
-                        <input type="email" class="form-control" id="shareInput" aria-describedby="shareHelp">
-                        <div id="shareHelp" class="form-text">Share this folder with the email address specified (must be registered)</div>
+                        <label for="shareInput" class="form-label">Share folder with (user email or group name)</label>
+                        <div class="input-group">
+                            <select class="form-select" id="shareType" style="max-width:100px">
+                                <option value="user" selected>User</option>
+                                <option value="group">Group</option>
+                              </select>
+                            <input type="text" class="form-control" id="shareInput">
+                            <button type="button" id="shareFolderConfirm" class="btn btn-info" disabled="disabled">Share Folder</button>
+                        </div>
+                        
+                        <input type="hidden" id="share_uuid">
+                        <div class="d-flex justify-content-end mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="shareWriteAccess">
+                                <label class="form-check-label" for="shareWriteAccess">
+                                Grant Write Access?
+                                </label>
+                            </div>
+                        </div>
                       </div>
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
-                  <button type="button" class="btn btn-info" disabled="disabled">Share Folder</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal fade" id="editFileModal" tabindex="-1" aria-labelledby="editFileModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl">
-              <div class="modal-content">
-                <div class="modal-header bg-light">
-                  <h5 class="modal-title" id="editFileModalLabel">Edit File</h5>
-                  <input type="hidden" id="editFileUUID" name="editFileUUID" value="">
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="editFileNameInput" class="form-label">File Name</label>
-                        <input class="form-control" id="editFileNameInput" aria-describedby="editFileNameHelp">
-                        <div id="editFileNameHelp" class="form-text"></div>
-                      </div>
-
                       <div class="mb-3">
-                        <label for="editFileContentInput" class="form-label">Content</label>
-                        <textarea class="form-control" rows="20" id="editFileContentInput" aria-describedby="fileContentHelp"></textarea>
-                        <div id="editFileContentHelp" class="form-text">Edit your file, click Save to save your changes</div>
+                        <ul class="list-group" id="shareSuggestions">
+                            
+                          </ul>
                       </div>
                 </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
-                  <button type="button" id="saveFileButton" class="btn btn-success">Save</button>
-                </div>
+                
               </div>
             </div>
           </div>
+
+         
 
         <script>
+            var selectedSuggestion;
             $(document).ready(function(){
+                
                 loadDir();
                 var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
                 var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl)
                 })
+
+                var myModalEl = document.getElementById('shareModal');
+                    myModalEl.addEventListener('shown.bs.modal', function (event) {
+                        console.log("Opened share modal");
+                        $('#shareInput').focus();
+                    });
+                    myModalEl.addEventListener('hidden.bs.modal', function (event) {
+                        deselectSuggestion();
+                        $('#shareInput').val('');
+                        $('#shareSuggestions').html("");
+                    });
+                
+                $('#shareFolderConfirm').click(function(){
+                    console.log("Sharing folder");
+                    var subject_uuid = $('#share_uuid').val();
+                    var share_type = $('#shareType').val();
+
+                    var folder_uuid = $('#pwd').val();
+                    var allow_write = $('#shareWriteAccess').is(":checked");
+
+                    $.ajax({
+                        url: "/api/share/folder/" + folder_uuid,
+                        method: "POST",
+                        data: { subject_uuid: subject_uuid, subject_type: share_type, allow_write: allow_write},
+                        success: function(data){
+                            
+                            var ModalEl = document.getElementById('shareModal');
+                            var Modal = bootstrap.Modal.getInstance(ModalEl);
+
+                            Modal.hide();
+                        },
+                        error: function(error) {
+                            console.error("Error sharing folder:", error);
+                        }
+                    });
+
+                });
                 
                 $('#saveFileButton').click(function(){
                     file_name = $('#editFileNameInput').val();
@@ -318,7 +364,61 @@
 
                     });
 
+                    $('#shareType').on( "change", function() {
+                        var type = $('#shareType').val();
+                        $('#shareSuggestions').html("");
+                        $('#shareInput').val("");
+                        deselectSuggestion();
 
+                        
+
+                    });
+
+                    
+
+                    $('#shareInput').on("keyup", function(){
+                        var type = $('#shareType').val();
+                        var partial = $('#shareInput').val();
+                        deselectSuggestion();
+
+                        $('#shareSuggestions').html("");
+
+                        if (partial.length > 1){
+                            if (type == 'user'){
+                                $.ajax({
+                                    url: "/api/user_autocomplete",
+                                    method: "POST",
+                                    data: { partial: partial},
+                                    success: function(data){
+                                        data.users.forEach(function(user){
+                                            var element = `<li class="list-group-item suggestion_result" onclick="selectSuggestion('${user.uuid}','${user.email}')" id="suggestion_${user.uuid}"><img src="${user.image}" referrerpolicy="no-referrer" class="rounded-circle" width="22"> ${user.name} <small>&lt;${user.email} &gt;</small></li>`;
+                                            $('#shareSuggestions').append(element);
+                                        });
+                                    },
+                                    error: function(error) {
+                                        console.error("Autocomplete Error:", error);
+                                    }
+                                });
+                            }
+                            else if (type == 'group'){
+                                $.ajax({
+                                    url: "/api/group_autocomplete",
+                                    method: "POST",
+                                    data: { partial: partial},
+                                    success: function(data){
+                                        data.groups.forEach(function(group){
+                                            var element = `<li class="list-group-item suggestion_result" onclick="selectSuggestion('${group.uuid}','${group.name}')" id="suggestion_${group.uuid}"><i class="bi bi-people-fill" style="font-size:22px"></i> ${group.name}</li>`;
+                                            $('#shareSuggestions').append(element);
+                                        });
+                                    },
+                                    error: function(error) {
+                                        console.error("Autocomplete Error:", error);
+                                    }
+                                });
+                            }
+                        }
+
+                    });
                 
 
                 $('#createFolderButton').click(function(){
@@ -390,11 +490,47 @@
                             `;
                             $('#folder_content').append(element);
                         });
+                        data.sidebar.forEach(function(item){
+                            var element = `
+                            <li class="nav-item mb-3">
+                                <a href="#" class="nav-link align-middle px-0 text-dark">
+                                    <i class="fs-4 bi-folder-fill text-warning"></i> <span class="ms-1 d-none d-sm-inline">${item.name}</span>
+                                </a>
+                            </li>
+                            `;
+                            $('#sharedWithMeItems').append(element);
+                        });
                     },
                     error: function(error) {
                         console.error("Error loading directory:", error);
                     }
                 });
+            }
+
+            function selectSuggestion(item_uuid, name){
+                if (item_uuid == selectedSuggestion){
+                    deselectSuggestion();
+                }
+                else {
+                    var type = $('#shareType').val();
+                    $('#shareInput').val(name);
+                    selectedSuggestion = item_uuid;
+                    $('#share_uuid').val(item_uuid);
+
+                    console.log("Selecting item "+item_uuid);
+
+                    $("#suggestion_"+item_uuid).addClass("selected_suggestion");
+
+                    $('#shareFolderConfirm').prop( "disabled", false );
+                }
+            }
+
+            function deselectSuggestion(){
+                $('#shareFolderConfirm').prop( "disabled", true );
+                $("#suggestion_"+selectedSuggestion).removeClass("selected_suggestion");
+                $('#share_uuid').val("");
+                console.log("Deselecting item "+selectedSuggestion)
+                selectedSuggestion = "";
             }
 
             
