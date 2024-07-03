@@ -644,17 +644,28 @@ def share_folder(folder_uuid):
 
     allow_write = request.form["allow_write"]
 
+    print(f"Allow Write: {allow_write}")
+
     if fga_check_user_access(user_uuid,"can_share","folder",folder_uuid):
         print("User is authorized to share folder")
-        if allow_write:
+        if allow_write == "true":
             relation = "writer"
         else:
             relation = "viewer"
 
-        if subject_type is "user":
+        print(f"Sharing folder {folder_uuid} with {subject_type} {subject_uuid} with relation {relation}")
+
+        if subject_type == "user":
+            
             fga_relate_user_object(subject_uuid,folder_uuid,"folder",relation)
-        elif subject_type is "group":
+        elif subject_type == "group":
             fga_relate_objects("group",subject_uuid,"folder", folder_uuid, relation)
+        else:
+            client_response = {
+            "result": "error",
+            "message": "No valid subject type defined"
+            }
+            return jsonify(client_response), 500
 
         client_response = {
             "result": "success",

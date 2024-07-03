@@ -287,7 +287,7 @@
                 $('#shareFolderConfirm').click(function(){
                     console.log("Sharing folder");
                     var subject_uuid = $('#share_uuid').val();
-                    var share_type = $('#shareType').val();
+                    var type = $('#shareType').val();
 
                     var folder_uuid = $('#pwd').val();
                     var allow_write = $('#shareWriteAccess').is(":checked");
@@ -295,7 +295,7 @@
                     $.ajax({
                         url: "/api/share/folder/" + folder_uuid,
                         method: "POST",
-                        data: { subject_uuid: subject_uuid, subject_type: share_type, allow_write: allow_write},
+                        data: { subject_uuid: subject_uuid, subject_type: type, allow_write: allow_write},
                         success: function(data){
                             
                             var ModalEl = document.getElementById('shareModal');
@@ -480,6 +480,7 @@
                         $('#folder_name').html('<i class="fs-4 bi-folder"></i> '+ data.folder_name);
 
                         $('#folder_content').html("");
+                        $('#sharedWithMeItems').html("");
                         data.contents.forEach(function(item){
                             var icon = item.type === "file" ? "bi-file-text" : "bi-folder-fill";
                             var element = `
@@ -493,7 +494,7 @@
                         data.sidebar.forEach(function(item){
                             var element = `
                             <li class="nav-item mb-3">
-                                <a href="#" class="nav-link align-middle px-0 text-dark">
+                                <a href="#" class="nav-link align-middle px-0 text-dark" onclick="load_folder('${item.uuid}','${item.name}')">
                                     <i class="fs-4 bi-folder-fill text-warning"></i> <span class="ms-1 d-none d-sm-inline">${item.name}</span>
                                 </a>
                             </li>
