@@ -9,12 +9,26 @@
         <script src="https://code.jquery.com/jquery-3.7.1.min.js" type="text/javascript"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
         <script type="text/javascript">
+            var selectedSuggestion;
+            var selectedGroup;
             $(document).ready(function(){
 
                 var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
                 var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl)
                 })
+
+                var myModalEl = document.getElementById('addMemberModal');
+                    myModalEl.addEventListener('shown.bs.modal', function (event) {
+                        console.log("Opened share modal");
+                        $('#addMemberInput').focus();
+                    });
+                    myModalEl.addEventListener('hidden.bs.modal', function (event) {
+                        deselectSuggestion();
+                        selectedGroup = "";
+                        $('#addMemberInput').val('');
+                        $('#addMemberSuggestions').html("");
+                    });
 
                 $('#newGroupButton').click(function(){
                     var group_name = $('#newGroupNameInput').val();
@@ -50,9 +64,102 @@
                     }
 
                     } );
+
+
+
+                    $('#addMemberInput').on("keyup", function(){
+                        
+                        var partial = $('#addMemberInput').val();
+                        deselectSuggestion();
+
+                        $('#addMemberSuggestions').html("");
+
+                        if (partial.length > 1){
+                                $.ajax({
+                                    url: "/api/user_autocomplete",
+                                    method: "POST",
+                                    data: { partial: partial},
+                                    success: function(data){
+                                        data.users.forEach(function(user){
+                                            var element = `<li class="list-group-item suggestion_result" onclick="selectSuggestion('${user.uuid}','${user.email}')" id="suggestion_${user.uuid}"><img src="${user.image}" referrerpolicy="no-referrer" class="rounded-circle" width="22"> ${user.name} <small>&lt;${user.email} &gt;</small></li>`;
+                                            $('#addMemberSuggestions').append(element);
+                                        });
+                                    },
+                                    error: function(error) {
+                                        console.error("Autocomplete Error:", error);
+                                    }
+                                });
+                            }
+                            
+
+                    });
+
+                    $('#addMemberConfirm').click(function(){
+                        group_uuid = selectedGroup;
+                        user_uuid = $('#share_uuid').val();
+
+                        if ($('#addMemberGroupAdmin').is(":checked")){
+                            user_role = "admin";
+                        }
+                        else {
+                            user_role = "member"
+                        }
+
+                        console.log("Adding user "+user_uuid+" to group "+group_uuid+" as "+user_role);
+
+                        $.ajax({
+                            url: "/api/group/add/" + group_uuid,
+                            method: "POST",
+                            data: { user_uuid: user_uuid, role: user_role},
+                            success: function(data){
+                                window.location.reload();
+                            },
+                            error: function(error) {
+                                console.log("Error adding user to group "+error);
+                            }
+                        });
+
+                    });
+
             });
 
+            function addMember(group_uuid){
+                selectedGroup = group_uuid;
+
+                var myModalEl = document.querySelector('#addMemberModal')
+                var modal = bootstrap.Modal.getOrCreateInstance(myModalEl)
+
+                modal.show();
+            }
+
+            function selectSuggestion(item_uuid, name){
+                if (item_uuid == selectedSuggestion){
+                    deselectSuggestion();
+                }
+                else {
+                    var type = $('#shareType').val();
+                    $('#addMemberInput').val(name);
+                    selectedSuggestion = item_uuid;
+                    $('#share_uuid').val(item_uuid);
+
+                    console.log("Selecting item "+item_uuid);
+
+                    $("#suggestion_"+item_uuid).addClass("selected_suggestion");
+
+                    $('#addMemberConfirm').prop( "disabled", false );
+                }
+            }
+
+            function deselectSuggestion(){
+                $('#addMemberConfirm').prop( "disabled", true );
+                $("#suggestion_"+selectedSuggestion).removeClass("selected_suggestion");
+                $('#share_uuid').val("");
+                console.log("Deselecting item "+selectedSuggestion)
+                selectedSuggestion = "";
+            }
+
             function manageGroup(group_uuid){
+                selectedGroup = group_uuid;
                 // Clear modal fields
                 $('#manageGroupTitle').html("");
                 $('#manageGroupMembers').html("");
@@ -136,6 +243,21 @@
                 box-shadow: 0 0 5px var(--bs-danger) !important;
             }
 
+            .suggestion_result {
+                cursor:pointer;
+            }
+            .suggestion_result:hover {
+                background-color: var(--bs-secondary);
+                color: var(--bs-light);
+            }
+            .selected_suggestion {
+                background-color: var(--bs-primary);
+                color: var(--bs-light);
+            }
+            .selected_suggestion:hover {
+                background-color: var(--bs-primary);
+                color: var(--bs-light);
+            }
           </style>
     </head>
     <body>
@@ -162,7 +284,7 @@
                         height="32" alt="Avatar" loading="lazy" />
                     </a>
                     <div class="dropdown-menu dropdown-menu-end text-dark" aria-labelledby="dropdownMenuButton1">
-                      <li><a class="dropdown-item" href="#"><i class="bi bi-person-circle"></i> Profile</a></li>  
+                        <li><a class="dropdown-item" href="/groups"><i class="bi bi-people"></i> Manage Groups</a></li>   
                       <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                       
                     </div>
@@ -203,10 +325,14 @@
                         <td class="text-center">{{ group.member_count }}</td>
                         <td class="text-end">
                             {% if group.can_invite %}
-                            <button class="btn btn-info btn-sm"><i class="bi bi-person-add"></i></button>
+                            <button class="btn btn-info btn-sm" onclick="addMember('{{group.group_uuid}}')"><i class="bi bi-person-add"></i></button>
                             {% endif %}
+                            {% if group.access_level == "owner" or group.access_level == "admin" %}
                             <button class="btn btn-primary btn-sm" onclick="manageGroup('{{group.group_uuid}}')"><i class="bi bi-pencil-square"></i></button>
+                            {% endif %}
+                            {% if group.access_level == "owner" %}
                             <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
+                            {% endif %}
                         </td>
                       </tr>
                     {% endfor %}
@@ -284,6 +410,42 @@
                         <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Close</button>
                     
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="addMemberModal" tabindex="-1" aria-labelledby="addMemberModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title" id="addMemberModalLabel"><i class="fs-4 bi-person-fill text-primary"></i>  Add Group member</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="addMemberInput" class="form-label">Add member to the group <span id="addMemberGroupName"></span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="addMemberInput">
+                            <button type="button" id="addMemberConfirm" class="btn btn-primary" disabled="disabled">Add Member</button>
+                        </div>
+                        
+                        <input type="hidden" id="share_uuid">
+                        <div class="d-flex justify-content-end mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="addMemberGroupAdmin">
+                                <label class="form-check-label" for="addMemberGroupAdmin">
+                                Make user a group Admin
+                                </label>
+                            </div>
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <ul class="list-group" id="addMemberSuggestions">
+                            
+                          </ul>
+                      </div>
+                </div>
+                
               </div>
             </div>
           </div>

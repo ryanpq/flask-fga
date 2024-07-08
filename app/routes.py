@@ -293,6 +293,7 @@ def createNewGroup(name, user_uuid):
 
     # Create FGA Tuple
     fga_relate_user_object(user_uuid,new_uuid,"group","owner")
+    fga_relate_user_object(user_uuid,new_uuid,"group","member")
 
     return new_uuid
 
@@ -659,7 +660,8 @@ def share_folder(folder_uuid):
             
             fga_relate_user_object(subject_uuid,folder_uuid,"folder",relation)
         elif subject_type == "group":
-            fga_relate_objects("group",subject_uuid,"folder", folder_uuid, relation)
+            fga_relate_objects("group",f"{subject_uuid}#member","folder", folder_uuid, relation)
+            
         else:
             client_response = {
             "result": "error",
@@ -686,11 +688,96 @@ def share_folder(folder_uuid):
 @api_require_auth
 def share_file(file_uuid):
     print("File Share Request")
+    user_id = session["user_id"]
+    user_uuid = session["uuid"]
+    
 
-@main.route("/api/group/add/<group_uuid>")
+    subject_uuid = request.form["subject_uuid"]
+    subject_type = request.form["subject_type"]
+
+    allow_write = request.form["allow_write"]
+
+    print(f"Allow Write: {allow_write}")
+
+    if fga_check_user_access(user_uuid,"can_share","file",file_uuid):
+        print("User is authorized to share file")
+        if allow_write == "true":
+            relation = "can_write"
+        else:
+            relation = "can_view"
+
+        print(f"Sharing file {file_uuid} with {subject_type} {subject_uuid} with relation {relation}")
+
+        if subject_type == "user":
+            
+            fga_relate_user_object(subject_uuid,file_uuid,"file",relation)
+        elif subject_type == "group":
+            fga_relate_objects("group",f"{subject_uuid}#member","file", file_uuid, relation)
+            
+        else:
+            client_response = {
+            "result": "error",
+            "message": "No valid subject type defined"
+            }
+            return jsonify(client_response), 500
+
+        client_response = {
+            "result": "success",
+            "message": "File shared"
+        }
+        return jsonify(client_response)
+
+
+    else:
+        client_response = {
+            "result": "error",
+            "message": "Not authorized to share this file"
+        }
+        return jsonify(client_response), 403
+
+@main.route("/api/group/add/<group_uuid>", methods=["POST"])
 @api_require_auth
 def group_add_user(group_uuid):
     print("Add user to group request")
+    member_uuid = request.form["user_uuid"]
+    member_uuid_u = uuid.UUID(member_uuid)
+    group_uuid_u = uuid.UUID(group_uuid)
+    user_uuid = session['uuid']
+    role = request.form['role']
+
+    if fga_check_user_access(user_uuid, "can_invite", "group", group_uuid):
+        print("user is authorized to add members to group")
+        new_user = User.query.filter_by(uuid=member_uuid_u).first()
+        group = Group.query.filter_by(uuid=group_uuid_u).first()
+        #Check if user is already a member
+        if UserGroup.query.filter_by(user_id=new_user.id, group_id=group.id).first() is None:
+            membership = UserGroup(user_id=new_user.id,group_id=group.id)
+            db.session.add(membership)
+            db.session.commit()
+
+            res = fga_relate_user_object(new_user.uuid,group_uuid,"group",role)
+            if role == "admin":
+                fga_relate_user_object(new_user.uuid,group_uuid,"group","member")
+            if res is not None:
+                client_response = {
+                    "result": "success",
+                    "message": f"User added to group as {role}"
+                }
+                return jsonify(client_response)
+            else:
+                client_response = {
+                    "result": "error",
+                    "message": f"Failed to grant user {role} permissions on this group"
+                }
+                return jsonify(client_response),500
+        else: 
+            # User is already a group member.  
+            client_response = {
+                "result": "error",
+                "message": "User is already a member of this group"
+            }
+            return jsonify(client_response), 409
+        
 
 @main.route("/api/group/make_admin/<group_uuid>")
 @api_require_auth
@@ -715,13 +802,14 @@ def user_autocomplete():
     matches = []
     match_count = 0
     for user in suggestions:
-        matches.append({
-            "name": user.name,
-            "email": user.email,
-            "uuid": user.uuid,
-            "image": user.image
-        })
-        match_count += 1
+        if user.uuid != session['uuid']:
+            matches.append({
+                "name": user.name,
+                "email": user.email,
+                "uuid": user.uuid,
+                "image": user.image
+            })
+            match_count += 1
     client_response = {
         "matches": match_count,
         "users": matches
@@ -767,11 +855,13 @@ def file_view(file_uuid):
             write_allowed = True
         else:
             write_allowed = False
+            print("User does not have write access")
 
         if fga_check_user_access(user_uuid, "can_share", "file", file_uuid):
             share_allowed = True
         else:
             share_allowed = False
+            print("User cannot share this file")
 
         
         created = datetime.datetime.strftime(file.created, '%d-%b-%Y %H:%M')
