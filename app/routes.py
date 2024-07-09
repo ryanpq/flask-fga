@@ -6,7 +6,6 @@ from app import oauth, db
 from app.models import User, Group, File, Folder, UserGroup
 import uuid
 import os
-import asyncio
 from openfga_sdk.client import ClientConfiguration
 from openfga_sdk.sync import OpenFgaClient
 from openfga_sdk.client.models import ClientTuple, ClientWriteRequest, ClientCheckRequest, ClientListObjectsRequest
@@ -360,6 +359,16 @@ def list_directory(folder_uuid):
     folder_objects = []
     sidebar_objects = []
 
+    if fga_check_user_access(user_uuid,"can_create_file","folder",folder_uuid):
+        pwd_can_write = True
+    else:
+        pwd_can_write = False
+
+    if fga_check_user_access(user_uuid,"can_share", "folder", folder_uuid):
+        pwd_can_share = True
+    else:
+        pwd_can_share = False
+
     session["pwd"] = folder_uuid_u
 
     print("Checking for parent folder")
@@ -413,6 +422,8 @@ def list_directory(folder_uuid):
     client_response = {
         "folder_uuid": str(pwd.uuid),
         "folder_name": pwd.name,
+        "can_create_file": pwd_can_write,
+        "can_share": pwd_can_share,
         "contents": folder_objects,
         "sidebar" : sidebar_objects
     }
@@ -650,7 +661,7 @@ def share_folder(folder_uuid):
     if fga_check_user_access(user_uuid,"can_share","folder",folder_uuid):
         print("User is authorized to share folder")
         if allow_write == "true":
-            relation = "writer"
+            relation = "can_create_file"
         else:
             relation = "viewer"
 

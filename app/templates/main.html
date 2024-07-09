@@ -43,7 +43,7 @@
               <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                   <li class="nav-item">
-                    <a class="nav-link active text-light" aria-current="page" href="/">Home</a>
+                   <!-- <a class="nav-link active text-light" aria-current="page" href="/">Home</a>-->
                   </li>
                   
                 </ul>
@@ -105,7 +105,7 @@
                             
                             <li class="nav-item text-dark">
                                 <span class="navbar-text small">
-                                DEMO APP
+                                
                                 </span>
 
                             </li>
@@ -131,10 +131,10 @@
                         <div class="btn-group" role="group" aria-label="Tools">
                             <a href="#" class="text-success btn btn-success text-light" id="createNewFileButton" data-bs-toggle="tooltip" data-bs-placement="top" title="New File"><i class="bi bi-file-plus"></i></a>
                             
-                            <span data-bs-toggle="modal" data-bs-target="#folderModal">
+                            <span data-bs-toggle="modal" data-bs-target="#folderModal" id="createNewFolderButton">
                             <a href="#" class="text-success btn btn-warning text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New Folder"><i class="bi bi-folder-plus"></i></a>
                             </span>
-                            <span data-bs-toggle="modal" data-bs-target="#shareModal">
+                            <span data-bs-toggle="modal" data-bs-target="#shareModal" id="shareThisFolderButton">
                             <a href="#" class="text-success btn btn-primary text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="Share Folder"><i class="bi bi-share-fill"></i></a>
                             </span>
                         </div> 
@@ -473,11 +473,24 @@
                     return;
                 }
 
+                $('#createNewFileButton').hide();
+                $('#createNewFolderButton').hide();
+                $('#shareThisFolderButton').hide();
                 $.ajax({
                     url: "/api/list/" + pwd,
                     method: "GET",
                     success: function(data){
                         $('#folder_name').html('<i class="fs-4 bi-folder"></i> '+ data.folder_name);
+                        can_share = data.can_share;
+                        can_create_file = data.can_create_file;
+
+                        if (can_create_file){
+                            $('#createNewFileButton').show();
+                            $('#createNewFolderButton').show();
+                        }
+                        if (can_share){
+                            $('#shareThisFolderButton').show();
+                        }
 
                         $('#folder_content').html("");
                         $('#sharedWithMeItems').html("");
