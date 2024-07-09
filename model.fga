@@ -1,0 +1,33 @@
+model
+  schema 1.1
+
+type user
+  relations
+    define can_create: [user]
+    define can_delete: [user]
+    define can_invite: [user]
+
+type group
+  relations
+    define admin: [user]
+    define can_invite: [user] or owner or admin
+    define can_view: member or owner or admin
+    define member: [user]
+    define owner: [user]
+
+type folder
+  relations
+    define can_create_file: [user, group#member] or owner or owner from parent
+    define can_share: [group#admin, group#owner] or owner
+    define owner: [user]
+    define parent: [folder]
+    define viewer: [user, user:*, group#member] or owner or can_create_file or can_create_file from parent or viewer from parent
+
+type file
+  relations
+    define can_change_owner: owner
+    define can_read: [user, user:*, group#member] or owner or viewer from parent
+    define can_share: [user, user:*, group#member] or owner or owner from parent or can_share from parent
+    define can_write: [user, user:*, group#member] or owner or owner from parent or can_create_file from parent
+    define owner: [user]
+    define parent: [folder]
