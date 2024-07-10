@@ -815,6 +815,23 @@ def group_make_user_admin(group_uuid):
 @api_require_auth
 def group_downgrade_user(group_uuid):
     print("Remove group admin privileges from user")
+    user_uuid = session['uuid']
+    group_uuid_u = uuid.UUID(group_uuid)
+    subject_uuid = request.form['subject_uuid']
+    if fga_check_user_access(user_uuid,"admin","group",group_uuid) or fga_check_user_access(user_uuid,"owner","group",group_uuid):
+        print("user is authorized to change group permissions")
+        fga_delete_user_tuple(subject_uuid,group_uuid,"group","admin")
+        client_response = {
+            "result": "success",
+            "message": "Admin permissions removed from user"
+        }
+        return jsonify(client_response)
+    else:
+        client_response = {
+            "result": "error",
+            "message": "User does not have permission to modify group permissions"
+        }
+        return jsonify(client_response), 403
 
 @main.route("/api/group/remove_user/<group_uuid>")
 @api_require_auth
