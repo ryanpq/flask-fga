@@ -794,6 +794,22 @@ def group_add_user(group_uuid):
 @api_require_auth
 def group_make_user_admin(group_uuid):
     print("Make user group admin")
+    user_uuid = session['uuid']
+    group_uuid_u = uuid.UUID(group_uuid)
+    subject_uuid = request.forn['subject_uuid']
+    if fga_check_user_access(user_uuid,"owner","group",group_uuid) or fga_check_user_access(user_uuid,"admin","group",group_uuid)
+        fga_relate_user_object(subject_uuid,group_uuid,"group","admin")
+        client_response = {
+            "result": "success",
+            "message": "Admin permissions granted to user"
+        }
+        return jsonify(client_response)
+    else:
+        client_response = {
+            "result": "error",
+            "message": "User does not have permission to grant admin rights"
+        }
+        return jsonify(client_response), 403
 
 @main.route("/api/group/downgrade_user/<group_uuid>")
 @api_require_auth
