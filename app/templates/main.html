@@ -134,6 +134,7 @@
                             <span data-bs-toggle="modal" data-bs-target="#folderModal" id="createNewFolderButton">
                             <a href="#" class="text-success btn btn-warning text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="New Folder"><i class="bi bi-folder-plus"></i></a>
                             </span>
+                            <a href="#" class="text-success btn btn-danger text-light" id="deleteFolderButton" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete Folder"><i class="bi bi-trash"></i></a>
                             <span data-bs-toggle="modal" data-bs-target="#shareModal" id="shareThisFolderButton">
                             <a href="#" class="text-success btn btn-primary text-light" data-bs-toggle="tooltip" data-bs-placement="top" title="Share Folder"><i class="bi bi-share-fill"></i></a>
                             </span>
@@ -476,6 +477,7 @@
                 $('#createNewFileButton').hide();
                 $('#createNewFolderButton').hide();
                 $('#shareThisFolderButton').hide();
+                $('#deleteFolderButton').hide();
                 $.ajax({
                     url: "/api/list/" + pwd,
                     method: "GET",
@@ -483,7 +485,8 @@
                         $('#folder_name').html('<i class="fs-4 bi-folder"></i> '+ data.folder_name);
                         can_share = data.can_share;
                         can_create_file = data.can_create_file;
-
+                        is_default = data.is_default;
+                        is_owner = data.is_owner;
                         if (can_create_file){
                             $('#createNewFileButton').show();
                             $('#createNewFolderButton').show();
@@ -491,6 +494,10 @@
                         if (can_share){
                             $('#shareThisFolderButton').show();
                         }
+                        if (!is_default && is_owner){
+                            $('#deleteFolderButton').show();
+                        }
+                        
 
                         $('#folder_content').html("");
                         $('#sharedWithMeItems').html("");

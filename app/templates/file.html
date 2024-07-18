@@ -41,6 +41,23 @@
                
             });
 
+            $('#deleteFileButton').click(function(){
+              var uuid = $('#uuid').val();
+              $.ajax({
+                        url: "/api/delete_file/" + uuid,
+                        method: "POST",
+                        success: function(data){
+                          window.location.href = "/";
+                        },
+                        error: function(error) {
+                            $('#error_toast_message').html("Error Deleting File!");
+                            var myToastEl = document.getElementById('error_toast');
+                            var myToast = bootstrap.Toast.getOrCreateInstance(myToastEl);
+                            myToast.show();
+                        }
+                    });
+            });
+
             });
 
 
@@ -132,7 +149,9 @@
                 <div class="btn-group me-3" role="group" aria-label="Toolbar">
                     {% if data.write_allowed %}
                     <button type="button" id="save_button" class="btn btn-outline-secondary text-primary"><i class="bi bi-floppy"></i></button>
-                    <button type="button" id="delete_button" class="btn btn-outline-secondary text-danger"><i class="bi bi-trash"></i></button>
+                    
+                    <button type="button" id="delete_button" data-bs-toggle="modal" data-bs-target="#deleteModal" class="btn btn-outline-secondary text-danger"><i class="bi bi-trash"></i></button>
+                    
                     {% endif %}
                     {% if data.share_allowed %}
                     <button type="button" class="btn btn-outline-secondary"><i class="bi bi-share text-info"></i></button>
@@ -169,7 +188,27 @@
               <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
           </div>
-        
+
+          <!-- Modals -->
+          <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title" id="deleteModalLabel"><i class="fs-4 bi-trash text-danger"></i> Delete File</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <p>Permanently delete this file?</p>
+                      </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" id="deleteFileButton" class="btn btn-danger">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
           
           </body>
           </html>

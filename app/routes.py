@@ -45,6 +45,7 @@ def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
             ],
     )
     response = fga_client.write(body)
+    print(f"Write Success: {response.writes[0].success}")
     return response
 
 def fga_delete_user_tuple(user_uuid,object_uuid,object_type,relation):
@@ -369,6 +370,11 @@ def list_directory(folder_uuid):
     else:
         pwd_can_share = False
 
+    if fga_check_user_access(user_uuid,"owner","folder",folder_uuid):
+        is_owner = True
+    else:
+        is_owner = False
+
     session["pwd"] = folder_uuid_u
 
     print("Checking for parent folder")
@@ -424,10 +430,80 @@ def list_directory(folder_uuid):
         "folder_name": pwd.name,
         "can_create_file": pwd_can_write,
         "can_share": pwd_can_share,
+        "is_default": pwd.default_folder,
+        "is_owner": is_owner,
         "contents": folder_objects,
         "sidebar" : sidebar_objects
     }
     return jsonify(client_response)
+
+def folder_delete(folder_id,user_uuid):
+    #For use in delete_folder() for recursive deletions
+    print("Folder Delete initiated")
+
+def file_delete(file_id,user_uuid):
+    #for use in delete_folder() for recursive deletions
+    print("File Delete Initiated")
+
+
+@main.route("/api/delete_folder/<folder_uuid>", methods=["POST"])
+@api_require_auth
+def delete_folder(folder_uuid):
+    folder_uuid_u = uuid.UUID(folder_uuid)
+    user_id = session['user_id']
+    user_uuid = session['uuid']
+
+    folder = Folder.query.filter_by(uuid=folder_uuid_u).first()
+
+    if folder.default_folder:
+        client_response = {
+            "result": "error",
+            "message": "Cannot delete your default folder"
+        }
+        return jsonify(client_response), 403
+
+    if fga_check_user_access(user_uuid,"owner","folder",folder_uuid):
+        print(f"User is owner of folder")
+
+        child_folder_queue = [folder.id]
+        delete_folder_queue = [folder.id]
+        delete_file_queue = []
+    
+        while len(child_folder_queue) > 0:
+            f_id = child_folder_queue.pop(0)
+            folders = Folder.query.filter_by(parent=f_id).all()
+            for f in folders:
+                child_folder_queue.append(f.id)
+                delete_folder_queue.append(f.id)
+            
+            files = File.query.filter_by(folder=f_id).all()
+            for fl in files:
+                delete_file_queue.append(fl.id)
+
+        file_delete_count = 0
+        folder_delete_count = 0
+
+        for dir in delete_folder_queue:
+            folder_delete(dir,user_uuid)
+            folder_delete_count += 1
+
+        for fle in delete_file_queue:
+            file_delete(fle,user_uuid)
+            file_delete_count += 1
+
+        client_response = {
+            "result": "success",
+            "message": f"{folder_delete_count} Folders and {file_delete_count} Files deleted sucessfully"
+        }
+        return jsonify(client_response)
+        
+
+    else:
+        client_response = {
+            "result": "error",
+            "message": "Permission denied to delete folder"
+        }
+        return jsonify(client_response), 403
 
 @main.route("/api/create_folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
@@ -546,9 +622,9 @@ def delete_file(file_uuid):
     file_uuid_u = uuid.UUID(file_uuid)
     user_uuid = session['uuid']
 
-    if fga_check_user_access(user_uuid, "can_write", "file", file_uuid_u):
+    if fga_check_user_access(user_uuid, "can_write", "file", file_uuid):
         print("User authorized with write access can delete file.")
-        File.query.filter_by(uuid=file_uuid).delete()
+        File.query.filter_by(uuid=file_uuid_u).delete()
         db.session.commit()
         client_response = {
             "authorized": True,
@@ -797,7 +873,7 @@ def group_make_user_admin(group_uuid):
     user_uuid = session['uuid']
     group_uuid_u = uuid.UUID(group_uuid)
     subject_uuid = request.forn['subject_uuid']
-    if fga_check_user_access(user_uuid,"owner","group",group_uuid) or fga_check_user_access(user_uuid,"admin","group",group_uuid)
+    if fga_check_user_access(user_uuid,"owner","group",group_uuid) or fga_check_user_access(user_uuid,"admin","group",group_uuid):
         fga_relate_user_object(subject_uuid,group_uuid,"group","admin")
         client_response = {
             "result": "success",
