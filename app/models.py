@@ -1,6 +1,8 @@
 from . import db
 import datetime
 
+# The classes in this file represent our database table and schemas for SQLAlchemy
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     uuid = db.Column(db.Uuid, unique=True, nullable=False)

@@ -13,11 +13,14 @@ from functools import wraps
 import datetime
 
 
+# This app uses a single Blueprint called "main"
 main = Blueprint('main', __name__)
 
+# We default fga_client to None until it is initialized
 fga_client = None
 
 def initialize_fga_client():
+    # This function is called to initialize our FGA Client instance if it is not already available
     print("Initializing OpenFGA Client SDK")
     configuration = ClientConfiguration(
         api_url = os.getenv('FGA_API_URL'), 
@@ -31,7 +34,8 @@ def initialize_fga_client():
     print("FGA Client initialized.")
 
 def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
-
+    # This function creates a tuple in our OpenFGA store which relates a "user" with an "object" using the provided relation
+    # The relation and object types used must be specified in the OpenFGA model
     if fga_client is None:
         initialize_fga_client()
 
@@ -49,6 +53,8 @@ def fga_relate_user_object(user_uuid,object_uuid,object_type,relation):
     return response
 
 def fga_delete_user_tuple(user_uuid,object_uuid,object_type,relation):
+    # This function will delete a tuple that defines a user to object relation in our OpenFGA store
+    # The function will fail if a tuple matching the definition provided does not exist
     if fga_client is None:
         initialize_fga_client()
 
@@ -65,7 +71,8 @@ def fga_delete_user_tuple(user_uuid,object_uuid,object_type,relation):
     return response
 
 def fga_relate_objects(object1_type,object1_uuid,object2_type,object2_uuid,relation):
-
+    # This function creates a tuple in our OpenFGA instance that relates two objects with the relation specified
+    # The object types and relation specified must exist in the OpenFGA model
     if fga_client is None:
         initialize_fga_client()
 
@@ -82,7 +89,8 @@ def fga_relate_objects(object1_type,object1_uuid,object2_type,object2_uuid,relat
     return response
 
 def fga_delete_object_tuple(object1_type,object1_uuid,object2_type,object2_uuid,relation):
-
+    # This function will delete a tuple which associates two objects in our OpenFGA store
+    # If a tuple matching the passed values does not exist this function will fail.
     if fga_client is None:
         initialize_fga_client()
 
@@ -99,6 +107,8 @@ def fga_delete_object_tuple(object1_type,object1_uuid,object2_type,object2_uuid,
     return response
 
 def fga_check_user_access(user_uuid,action,object_type,object_uuid):
+    # This function will check whether a user is authorized to perform the specified action on an object
+    # It will return a boolean value
     if fga_client is None:
         initialize_fga_client()
 
@@ -114,6 +124,7 @@ def fga_check_user_access(user_uuid,action,object_type,object_uuid):
     return response.allowed
 
 def fga_list_objects(user_uuid,action,object_type):
+    # This function will return a list of objects for which the specified user can perform the specified action
     if fga_client is None:
         initialize_fga_client()
 
@@ -130,6 +141,7 @@ def fga_list_objects(user_uuid,action,object_type):
     return response.objects
 
 def relateUserObject(user_uuid,object_uuid,object_type,relation):
+    #Wrapper function, can likely be removed
     
     result = fga_relate_user_object(user_uuid,object_uuid,object_type,relation)
 
@@ -140,6 +152,8 @@ def relateUserObject(user_uuid,object_uuid,object_type,relation):
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # This decorated function can be applied to route handers and will ensure that a valid user session is active.
+        # If the requestor is not logged in it will redirect their browser to the home page
         if 'user' not in session:
             return redirect(url_for('main.home'))
         return f(*args, **kwargs)
@@ -148,12 +162,17 @@ def require_auth(f):
 def api_require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # This decorated function provides similar functionality to the one above but is used for API routes.  
+        # Instead of redirecting the user it instead returns a 403 with a permission denied message in JSON to 
+        # the client if there is not a valid session
         if 'user' not in session:
             return jsonify({"error": "Permission denied - no authenticated user"}), 403
         return f(*args,**kwargs)
     return decorated_function
 
 def loadSession(email):
+    # This function is used after a user has authenticated to set the needed session variables so they can
+    # be accessed by other route handlers in the application
     print(f"Loading User Info from database for {email}")
     user = User.query.filter_by(email=email).first()
 
@@ -174,6 +193,8 @@ def loadSession(email):
     return True
 
 def registerUser(user_info):
+    # This function is used when a user logs into the app for the first time.
+    # It creates an entry in the database for the user and creates a default folder for them
     email = user_info['email']
     name = user_info['name']
     image = user_info['picture']
@@ -194,6 +215,8 @@ def registerUser(user_info):
     return True
 
 def createDefaultFolder(user_id):
+    # This function creates a user's default folder.  Each user has one default folder, it is the root for all the
+    # Files and folders they create in the app (other than those created in a folder shared by another user)
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -211,6 +234,7 @@ def createDefaultFolder(user_id):
     return folder.id
 
 def createDefaultFile(user_id, folder_id):
+    # When we create a user's default folder this function creates a readme.txt file in their folder 
     user = User.query.filter_by(id=user_id).first()
     folder = Folder.query.filter_by(id=folder_id).first()
 
@@ -232,6 +256,7 @@ def createDefaultFile(user_id, folder_id):
     return True
 
 def createNewFolder(parent_uuid,name,user_id):
+    # This function creates a new folder with the name and parent folder specified and applies relevant ownership permissions
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -253,6 +278,7 @@ def createNewFolder(parent_uuid,name,user_id):
     return True
 
 def createNewFile(parent_uuid, name, user_id, content):
+    # This function creates a new file with a title and content, owned by the user specified
     user = User.query.filter_by(id=user_id).first()
 
     if user is None:
@@ -274,6 +300,7 @@ def createNewFile(parent_uuid, name, user_id, content):
     return new_uuid
 
 def createNewGroup(name, user_uuid):
+    # This function creates a new user group with the name specified and sets the specified user as it's owner
     user = User.query.filter_by(uuid=user_uuid).first()
 
     if user is None:
@@ -302,12 +329,14 @@ def createNewGroup(name, user_uuid):
 
 @main.route("/login")
 def login():
+    # Login function redirects to the Auth0 login page for our app
     return oauth.auth0.authorize_redirect(
         redirect_uri=url_for("main.callback", _external=True)
     )
 
 @main.route("/callback", methods=["GET", "POST"])
 def callback():
+    # The callback function that Auth0 will redirect users to after authentication
     try:
         token = oauth.auth0.authorize_access_token()
         print(f"TOKEN: {token}\n\n\n")
@@ -332,6 +361,7 @@ def callback():
 
 @main.route("/logout")
 def logout():
+    # Log a user out of the app, clear the session and redirect them to the Auth0 logout url for our app
     session.clear()
     return redirect(
         "https://" + env.get("AUTH0_DOMAIN")
@@ -348,6 +378,7 @@ def logout():
 @main.route("/api/list/<folder_uuid>")
 @api_require_auth
 def list_directory(folder_uuid):
+    # This function will return JSON representing the contents of the specified folder and details about it if the requesting user is authorized
     folder_uuid_u = uuid.UUID(folder_uuid)
     print(f"Directory List Request uuid: {folder_uuid}")
     user_uuid = session['uuid']
@@ -438,17 +469,19 @@ def list_directory(folder_uuid):
     return jsonify(client_response)
 
 def folder_delete(folder_id,user_uuid):
-    #For use in delete_folder() for recursive deletions
+    # NOT YET IMPLEMENTED - For use in delete_folder() for recursive deletions
     print("Folder Delete initiated")
 
 def file_delete(file_id,user_uuid):
-    #for use in delete_folder() for recursive deletions
+    # NOT YET IMPLEMENTED
+    # for use in delete_folder() for recursive deletions
     print("File Delete Initiated")
 
 
 @main.route("/api/delete_folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
 def delete_folder(folder_uuid):
+    # Function to delete a folder.  Currently Incomplete
     folder_uuid_u = uuid.UUID(folder_uuid)
     user_id = session['user_id']
     user_uuid = session['uuid']
@@ -508,6 +541,8 @@ def delete_folder(folder_uuid):
 @main.route("/api/create_folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
 def create_folder(folder_uuid):
+    # Function to create a new folder within the folder specified if the user is authorized
+    # Expects a "name" form value
     name = request.form['name']
     print(f"Creating folder named {name} in uuid: {folder_uuid}")
     folder_uuid_u = uuid.UUID(folder_uuid)
@@ -526,6 +561,7 @@ def create_folder(folder_uuid):
 @main.route("/api/load_file/<file_uuid>")
 @api_require_auth
 def load_file(file_uuid):
+    # Function to load the details and content of the specified file if the user is authorized.
     user_id = session['user_id']
     user_uuid = session['uuid']
     file_uuid_u = uuid.UUID(file_uuid)
@@ -565,6 +601,7 @@ def load_file(file_uuid):
 @main.route("/api/save_file/<file_uuid>", methods=["POST"])
 @api_require_auth
 def save_file(file_uuid):
+    # Function to save changes to an existing file if the user is authorized
     name = request.form['name']
     content = request.form['content']
     user_uuid = session['uuid']
@@ -599,6 +636,7 @@ def save_file(file_uuid):
 @main.route("/api/create_file/<folder_uuid>", methods=["POST"])
 @api_require_auth
 def create_file(folder_uuid):
+    # Function to create a new file with the name and content provided in the specified folder if the user is authorized to do so
     name = request.form['name']
     content = request.form['content']
     print(f"Creating file named {name} in uuid: {folder_uuid}")
@@ -619,6 +657,7 @@ def create_file(folder_uuid):
 @main.route("/api/delete_file/<file_uuid>", methods=["POST"])
 @api_require_auth
 def delete_file(file_uuid):
+    # Function to delete a specified file if the requesting user is authorized
     file_uuid_u = uuid.UUID(file_uuid)
     user_uuid = session['uuid']
 
@@ -644,6 +683,7 @@ def delete_file(file_uuid):
 @main.route("/api/create_group", methods=["POST"])
 @api_require_auth
 def create_group():
+    # Function to create a new user group with the provided name (All users can create new groups)
     group_name = request.form["name"]
     user_uuid = session['uuid']
     user_id = session['user_id']
@@ -666,6 +706,7 @@ def create_group():
 @main.route("/api/group/<group_uuid>")
 @api_require_auth
 def get_group(group_uuid):
+    # Function to retrieve the details of a specified group if the requesting user is authorized
     user_uuid = session["uuid"]
     group_uuid_u = uuid.UUID(group_uuid)
 
@@ -722,6 +763,7 @@ def get_group(group_uuid):
 @main.route("/api/share/folder/<folder_uuid>", methods=["POST"])
 @api_require_auth
 def share_folder(folder_uuid):
+    # Function to share a folder with a user or group if the requesting user is authorized to do so
     print("Folder Share Request")
     user_id = session["user_id"]
     user_uuid = session["uuid"]
@@ -774,6 +816,7 @@ def share_folder(folder_uuid):
 @main.route("/api/share/file/<file_uuid>")
 @api_require_auth
 def share_file(file_uuid):
+    # Function to share a specified file with a user or group if the requesting user is authorized
     print("File Share Request")
     user_id = session["user_id"]
     user_uuid = session["uuid"]
@@ -825,6 +868,7 @@ def share_file(file_uuid):
 @main.route("/api/group/add/<group_uuid>", methods=["POST"])
 @api_require_auth
 def group_add_user(group_uuid):
+    # Function to add a user to a group if the requesting user is authorized to add users to the specified group
     print("Add user to group request")
     member_uuid = request.form["user_uuid"]
     member_uuid_u = uuid.UUID(member_uuid)
@@ -869,6 +913,7 @@ def group_add_user(group_uuid):
 @main.route("/api/group/make_admin/<group_uuid>")
 @api_require_auth
 def group_make_user_admin(group_uuid):
+    # Function to allow a group owner or admin to grant admin permissions on that group to another user
     print("Make user group admin")
     user_uuid = session['uuid']
     group_uuid_u = uuid.UUID(group_uuid)
@@ -890,6 +935,7 @@ def group_make_user_admin(group_uuid):
 @main.route("/api/group/downgrade_user/<group_uuid>")
 @api_require_auth
 def group_downgrade_user(group_uuid):
+    # Function to allow a group owner or admin to revoke admin permissions from a specified group member
     print("Remove group admin privileges from user")
     user_uuid = session['uuid']
     group_uuid_u = uuid.UUID(group_uuid)
@@ -912,11 +958,14 @@ def group_downgrade_user(group_uuid):
 @main.route("/api/group/remove_user/<group_uuid>")
 @api_require_auth
 def group_remove_user(group_uuid):
+    # NOT IMPLEMENTED
+    # Function to allow a group owner or admin to remove a user from the specified group
     print("Remove user from group")
 
 @main.route("/api/user_autocomplete", methods=["POST"])
 @api_require_auth
 def user_autocomplete():
+    # Function used to populate the autocomplete in share UIs for selecting a user
     partial = request.form["partial"]
     suggestions = User.query.filter(User.email.startswith(partial)).limit(8)
     matches = []
@@ -940,6 +989,7 @@ def user_autocomplete():
 @main.route("/api/group_autocomplete", methods=["POST"])
 @api_require_auth
 def group_autocomplete():
+    # Function used to populate the autocomplete in the share UIs for selecting a group
     user_uuid = session["uuid"]
     
     partial = request.form["partial"]
@@ -963,6 +1013,8 @@ def group_autocomplete():
 @main.route("/file/<file_uuid>")
 @require_auth
 def file_view(file_uuid):
+    # Function to load the contents of the specified file if the requesting user is authorized to view it.
+    # Also checks if the user has write or owner permissions and provides other metadata
     file_uuid_u = uuid.UUID(file_uuid)
     user_uuid = session.get('uuid')
 
@@ -1011,6 +1063,7 @@ def file_view(file_uuid):
 @main.route("/groups")
 @require_auth
 def groups():
+    # Returns details about the groups the requesting user is owner, admin, or a member of
     user_id = session['user_id']
     user_uuid = session['uuid']
 
@@ -1061,6 +1114,12 @@ def groups():
     
 @main.route("/")
 def home():
+    # Home page
+    # If no user is logged in it returns a default view with login buttons
+    # If a user is logged in this will load their "current directory" which is
+    # the last directory they viewed.
+    #
+    # If there is no "pwd" value specifying a current directory we default to the user's default_folder
     if session:
         user_id = session.get('user_id')
         user_uuid = session.get('uuid')

@@ -27,7 +27,7 @@ OpenFGA is an open source Fine-Grained Authorization solution inspired by Google
 
 ## Authentication
 
-Auth0 is used for authentication for simplicity but can easily be swapped out for another authentication solution.  Auth0 is initialized in app/__init__.py and utilized in app/routes.py in the route handlers for `/login`, `/logout`, and `/callback`.  The `loadSession()` function uses the information returned during authentication to set session variables which are used throughout the rest of the app.
+Auth0 is used for authentication for simplicity but can easily be swapped out for another authentication solution.  Auth0 is initialized in app/__init__.py and utilized in app/routes.py in the route handlers for `/login`, `/logout`, and `/callback`.  The `loadSession()` function uses the information returned during authentication to set session variables which are used throughout the rest of the app and the `registerUser()` function is used to create a new user in the database after they are first authenticated.
 
 ## Database
 

@@ -7,10 +7,10 @@ import asyncio
 
 
 
-# Load .env
+# Load .env for configuration values
 load_dotenv()
 
-# init sqlalchemy
+# init sqlalchemy and OAuth libs
 db = SQLAlchemy()
 oauth = OAuth()
 
@@ -23,7 +23,7 @@ def create_app():
 
     oauth.init_app(app)
 
-
+    # Configure and initialize the Auth0 Client
     oauth.register(
         "auth0",
         client_id=os.getenv("AUTH0_CLIENT_ID"),
@@ -35,10 +35,11 @@ def create_app():
     )
 
     
-
+    # Register the blueprint.  This app is configured to use blueprints but only includes a single blueprint
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
+    # Create our database schema if it doesn't exist
     with app.app_context():
         db.create_all()
 
