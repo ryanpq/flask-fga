@@ -130,7 +130,7 @@ From the main directory for this app run:
 Then you can begin working in your virutal environment with:
 
 Linux/Mac:
-`venv/bin/activate`
+`source venv/bin/activate`
 
 Windows:
 `venv\Scripts\activate.bat`
