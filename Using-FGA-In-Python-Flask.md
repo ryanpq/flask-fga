@@ -1,6 +1,6 @@
 # Using Fine Grained Authorization in a Python Flask Application
 
-Flask provides a simple framework for rapidly creating web applications in Python.  Using addons like SQLAlchemy and Flask-Login you can save a lot of time and focus your efforts on your application’s core functionality.
+[Flask](https://flask.palletsprojects.com/en/3.0.x/) provides a simple framework for rapidly creating web applications in Python.  Using addons like [SQLAlchemy](https://www.sqlalchemy.org/) and [Flask-Login](https://flask-login.readthedocs.io/en/latest/) you can save development time and focus your efforts on your application’s core functionality.
 
 In this guide we will build an example application that shows how you can incorporate OpenFGA in your application, allowing you to leverage the benefits of ReBAC authorization with Flask.
 
