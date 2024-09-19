@@ -13,7 +13,7 @@ Before we start, be sure you have the following installed on your development ma
 - **Flask**
 - **SQLAlchemy**
 - **Flask-Login**
-- **OpenFGA SDK for Python**
+- **[OpenFGA SDK for Python](https://github.com/openfga/python-sdk)**
 
 Once you have Python installed you can install the necessary packages using `pip3`:
 
