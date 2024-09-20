@@ -463,7 +463,7 @@ if __name__ == '__main__':
 
 ## Testing the Application
 
-### 1. Set up our .env
+### Set up our .env
 
 Our application expects several variables to be set as environment variables or in a .env file in our project directory.  For this example we will create a .env file with the following content:
 
