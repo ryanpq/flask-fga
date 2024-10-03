@@ -21,7 +21,7 @@ Once you have Python installed you can install the necessary packages using `pip
 pip3 install Flask SQLAlchemy Flask-Login openfga_sdk
 ```
 
-You’ll also need an OpenFGA server instance running.  You can use a remote instance or set up a local instance with Docker with:
+You’ll also need an OpenFGA server instance running.  You can use a managed instance like [OktaFGA](https://www.okta.com/products/fine-grained-authorization/) or set up a local instance with Docker with:
 
 ```bash
 docker run -p 8080:8080 openfga/openfga run
@@ -519,6 +519,6 @@ python run.py
 
 This guide presented a basic example of how OpenFGA can be used within a Python Flask application to manage authorization and access to resources.  You can find a more detailed example application that implements a web application allowing users to share text files and folders and covers topics including parent child relatinoships and sharing resources with others [in this project](https://github.com/openfga/flask-demo).
 
-For more detailed information about using OpenFGA, check out the [OpenFGA documentation](https://openfga.dev/docs/getting-started) and explore how you can leverage fine-grained authorization in your applications.
+
 
 
