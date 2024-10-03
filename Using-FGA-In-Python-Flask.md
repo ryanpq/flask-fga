@@ -1,8 +1,14 @@
-# Using Fine Grained Authorization in a Python Flask Application
+# OpenFGA for Python Flask Applications
+
+## How to add Fine-Grained Authorization (FGA) to a Python Flask application using the OpenFGA SDK for Python
+
+Fine-grained authorization (FGA) refers to the capability of granting individual users permission to perform particular actions on specific resources. Effective FGA systems enable the management of permissions for a large number of objects and users. These permissions can undergo frequent changes as the system dynamically adds objects and adjusts access permissions for its users.
+
+OpenFGA is an open-source Relationship Based Access Control (ReBAC) system designed by Okta for developers, and adopted by the Cloud Native Computing Foundation (CNCF). It offers scalability and flexibility, and it also supports the implementation of RBAC and ABAC authorization models, moving authorization logic outside application code, making it simpler to evolve authorization policies as complexity grows. In this guide, you will learn how to secure a Spring Boot document API with Auth0 and integrate Fine-Grained Authorization (FGA) into the document operations with OpenFGA.
 
 [Flask](https://flask.palletsprojects.com/en/3.0.x/) provides a simple framework for rapidly creating web applications in Python.  Using addons like [SQLAlchemy](https://www.sqlalchemy.org/) and [Flask-Login](https://flask-login.readthedocs.io/en/latest/) you can save development time and focus your efforts on your application’s core functionality.
 
-In this guide we will build an example application that shows how you can incorporate OpenFGA in your application, allowing you to leverage the benefits of ReBAC authorization with Flask.
+In this guide we will build an example application that shows how you can incorporate OpenFGA in your application, allowing you to leverage the benefits of fine-grained authorization with Flask.
 
 
 ## Prerequisites
