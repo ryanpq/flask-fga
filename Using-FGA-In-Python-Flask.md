@@ -76,7 +76,7 @@ from dotenv import load_dotenv
 
 class Config:
     load_dotenv()
-    SECRET_KEY = os.getenv('SECRET_KEY', 'your_secret_key')
+    SECRET_KEY = os.getenv('SECRET_KEY')
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FGA_API_URL = os.getenv('FGA_API_URL', 'http://localhost:8080')
@@ -84,7 +84,6 @@ class Config:
     FGA_MODEL_ID = os.getenv('FGA_MODEL_ID')
 ```
 
-Replace `'your_secret_key'` with a secure random string in a production environment.
 
 ### `app/__init__.py`
 
@@ -116,6 +115,23 @@ def create_app():
         db.create_all()
 
     return app
+```
+
+## Creating our launch script
+
+### `run.py`
+
+Our `run.py`, in the root directory of our project, is the script we will call in order to run our Flask application:
+
+```python
+# run.py
+
+from app import create_app
+
+app = create_app()
+
+if __name__ == '__main__':
+    app.run(debug=True)
 ```
 
 ## Defining the Database Models
@@ -207,7 +223,9 @@ def get_fga_client():
 
 This function initializes the OpenFGA client using the configurations from `config.py`.  In our application we use openfga_sdk.sync in order to use the synchronous client.  This lets us avoid issues with SQLAlchemy which does not support asynchronous use.
 
-## Implementing Routes with Flask-Login and OpenFGA
+
+
+## Implementing routes with Flask-Login and OpenFGA
 
 ### `app/routes.py`
 
@@ -405,7 +423,7 @@ This page extends our base template and displays a form that lets users register
 {% endblock %}
 ```
 
-### Index Template: `templates/index.html`
+### Index template: `templates/index.html`
 
 This page extends our base template and provides the UI elements for the main page of our application.
 
@@ -434,7 +452,7 @@ This page extends our base template and provides the UI elements for the main pa
 {% endblock %}
 ```
 
-### Resource Template: `templates/resource.html`
+### Resource template: `templates/resource.html`
 
 This page extends our base template and displays a list of resources a user has access to.
 
@@ -450,26 +468,9 @@ This page extends our base template and displays a list of resources a user has 
 {% endblock %}
 ```
 
-## Running the Application
+## Testing the application
 
-### `run.py`
-
-Finally we will create our `run.py` which we will call in order to run the Flask application:
-
-```python
-# run.py
-
-from app import create_app
-
-app = create_app()
-
-if __name__ == '__main__':
-    app.run(debug=True)
-```
-
-## Testing the Application
-
-### Set up our .env
+### Configuration variables
 
 Our application expects several variables to be set as environment variables or in a .env file in our project directory.  For this example we will create a .env file with the following content:
 
@@ -482,7 +483,7 @@ FGA_MODEL_ID="your fga model id"
 
 ```
 
-- SECRET_KEY: If you set a default secret key in your config.py you don't have to include it here.
+- SECRET_KEY: A unique value used internally by to secure session data in Flask.
 - DATABSE_URL: In our example we are using SQLite but you can also use a MySQL or PostgreSQL connection string.
 - FGA_API_URL: The URL to connect to your OpenFGA instance.  The example above assumes you are running OpenFGA in Docker locally using the command provided earlier.
 - FGA_STORE_ID: This is the store id that was returned when you created a store in your OpenFGA instance.
