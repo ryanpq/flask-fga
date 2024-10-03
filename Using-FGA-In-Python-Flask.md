@@ -21,7 +21,8 @@ Before we start, be sure you have the following installed on your development ma
 - **Flask-Login**
 - **[OpenFGA SDK for Python](https://github.com/openfga/python-sdk)**
 
-Once you have Python installed you can install the necessary packages using `pip3`:
+Once you have Python installed you can install the necessary packages using `pip3` 
+*(on some systems the command `pip` may be used in place of `pip3`)*:
 
 ```bash
 pip3 install Flask SQLAlchemy Flask-Login openfga_sdk
